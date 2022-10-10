@@ -1,16 +1,20 @@
 from class_Pairs import Pairs
 from class_Trader import Trader
-
-import numpy as np
-
-from datetime import datetime
-
-start = datetime(2013, 1, 1)
-end = datetime(2018, 1, 1)
-tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
+from class_Portfolio import Portfolio
 
 
-# Test Tickers
-cointegration=Pairs(start,end,tickers)
+portfolio=Portfolio()
+
+portfolio.portfolio1()
+data_train,data_val=portfolio.get_train_val()
+
+
+
+# Train Tickers
+cointegration=Pairs(data_train)
 selected_pairs=cointegration.get_pairs()
 print(selected_pairs)
+
+# Validate Tickers
+
+
