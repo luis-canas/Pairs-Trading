@@ -13,13 +13,13 @@ class Portfolio:
 
 
     def __init__(self):
-        self.train_val_split=1
-        self.data_train=0
-        self.data_val=0
-        self.data=[]
+        self.__train_val_split=1
+        self.__data_train=0
+        self.__data_val=0
+        self.__data=[]
 
     def get_train_val(self):
-        return self.data_train, self.data_val
+        return self.__data_train, self.__data_val
 
     def portfolio1(self):
 
@@ -27,11 +27,11 @@ class Portfolio:
         end = datetime(2018, 1, 1)
         tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
 
-        self.data=yf.download(tickers, start, end)['Close']
-        split=int(len(self.data)*self.train_val_split)
+        self.__data=yf.download(tickers, start, end)['Close']
+        split=int(len(self.data)*self.__train_val_split)
 
-        self.data_train=self.data[:split]
-        self.data_val=self.data[split:]
+        self.__data_train=self.__data[:split]
+        self.__data_val=self.__data[split:]
 
         
 
@@ -48,9 +48,9 @@ class Portfolio:
         tickers=df['Symbol']
         tickers=tickers[mask].tolist()
 
-        self.data= data.get_data_yahoo(tickers,start=start,end=end)['Close'].dropna()
-        split=int(len(self.data)*self.train_val_split)
+        self.__data= data.get_data_yahoo(tickers,start=start,end=end)['Close'].dropna()
+        split=int(len(self.data)*self.__train_val_split)
 
-        self.data_train=self.data[:split]
-        self.data_val=self.data[split:]
+        self.__data_train=self.__data[:split]
+        self.__data_val=self.__data[split:]
  

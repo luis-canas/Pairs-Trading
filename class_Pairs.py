@@ -25,22 +25,22 @@ class Pairs:
 
     def __init__(self, data):
 
-        self.all_pairs = []
-        self.data = data
-        self.tickers = data.keys()
-        self.start = data.index[0]._date_repr
-        self.end = data.index[-1]._date_repr
+        self.__all_pairs = []
+        self.__data = data
+        self.__tickers = data.keys()
+        self.__start = data.index[0]._date_repr
+        self.__end = data.index[-1]._date_repr
 
     def is_stationary(signal, threshold):
         return True if adfuller(signal)[1] < threshold else False
 
     def get_pairs(self):
-        return self.all_pairs
+        return self.__all_pairs
 
     def cointegrated_pairs(self):
 
-        data = self.data
-        tickers = self.tickers
+        data = self.__data
+        tickers = self.__tickers
         n_pairs = len(tickers)
 
         adfuller_threshold = 1
@@ -67,7 +67,7 @@ class Pairs:
                 if pvalue <= pvalue_threshold and hurst <= hurst_threshold:
                     pairs.append((tickers[i], tickers[j]))
 
-        self.all_pairs = pairs
+        self.__all_pairs = pairs
 
     def Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
 
@@ -88,8 +88,8 @@ class Pairs:
             plt.axhline(-standard_devitation, color='green')
             plt.axhline(2*standard_devitation, color='red')
             plt.axhline(-2*standard_devitation, color='red')
-            plt.xlim(self.start,
-                     self.end)
+            plt.xlim(self.__start,
+                     self.__end)
             plt.show()
 
         return score, pvalue, hurst

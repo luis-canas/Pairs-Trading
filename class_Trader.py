@@ -14,12 +14,15 @@ class Trader:
 
     def __init__(self,data):
 
-        self.all_pairs=[]
-        self.data=data
+        self.__dict = {}
+        self.__all_pairs=[]
+        self.__data=data
+
 
     def set_pairs(self,pairs):
         
-        self.all_pairs=pairs
+        self.__all_pairs=pairs
+        self.__dict = {}
 
     def ARMA_model(self,signal1,signal2):
 
