@@ -9,81 +9,68 @@ from statsmodels.tsa.stattools import coint, adfuller
 from hurst import compute_Hc as hurst_exponent
 from scipy.stats import zscore
 
-import seaborn
+from sklearn.cluster import OPTICS
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-
-
-
-SHOW_GRAPH = True
+VERBOSE = False
 
 
 class Pairs:
 
+    """
+    A class used to represent trading Pairs
+
+    """
+
     def __init__(self, data):
 
-        self.pairs = []
+        self.all_pairs = []
+        self.data = data
         self.tickers = data.keys()
         self.start = data.index[0]._date_repr
         self.end = data.index[-1]._date_repr
-        self.adfuller_threshold=1
-        self.pvalue_threshold = 0.05
-        self.hurst_threshold = 0.5  # mean reversing threshold
-        self.data = data
 
-        self.cointegrated_pairs()
+    def is_stationary(signal, threshold):
+        return True if adfuller(signal)[1] < threshold else False
 
     def get_pairs(self):
-        return self.pairs
-
-    def stationarity(self, signal):
-        signal = np.ravel(signal)
-        if adfuller(signal)[1] < self.adfuller_threshold:
-            return True
-        else:
-            return False
+        return self.all_pairs
 
     def cointegrated_pairs(self):
 
         data = self.data
-        n_pairs = data.shape[1]
-        score_matrix = np.zeros((n_pairs, n_pairs))
-        pvalue_matrix = np.ones((n_pairs, n_pairs))
-        keys = data.keys()
+        tickers = self.tickers
+        n_pairs = len(tickers)
+
+        adfuller_threshold = 1
+        pvalue_threshold = 0.05
+        hurst_threshold = 0.5  # mean reversing threshold
+
         pairs = []
 
         for i in range(n_pairs):
 
-            pair1 = data[keys[i]]
-            if (not self.stationarity(pair1)):
+            pair1 = data[tickers[i]]
+            if (not self.is_stationary(pair1, adfuller_threshold)):
                 continue
 
             for j in range(i+1, n_pairs):
 
-                pair2 = data[keys[j]]
-                if(not self.stationarity(pair2)):
+                pair2 = data[tickers[j]]
+                if(not self.is_stationary(pair2, adfuller_threshold)):
                     continue
 
-                 
-                score, pvalue, hurst = self.Engle_Granger(pair1, pair2)
+                _, pvalue, hurst = self.Engle_Granger(
+                    pair1, pair2, pvalue_threshold, hurst_threshold)
 
-                score_matrix[i, j] = score
-                pvalue_matrix[i, j] = pvalue
+                if pvalue <= pvalue_threshold and hurst <= hurst_threshold:
+                    pairs.append((tickers[i], tickers[j]))
 
-                if pvalue <= self.pvalue_threshold and hurst <= self.hurst_threshold:
-                    pairs.append((keys[i], keys[j]))
+        self.all_pairs = pairs
 
-        if(SHOW_GRAPH):
-            fig, ax = plt.subplots(figsize=(10, 10))
-            seaborn.heatmap(pvalue_matrix, xticklabels=self.tickers, yticklabels=self.tickers, mask=(
-                pvalue_matrix >= self.pvalue_threshold))
-            plt.show()
+    def Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
 
-        self.pairs = pairs
-
-    def Engle_Granger(self, signal1, signal2):
-        # If xt and yt are non-stationary and order of integration d=1, then a linear combination of them must be stationary for some value of
-        # beta  and ut. In other words:
-        # yt-beta*xt=ut
         beta = OLS(signal2, signal1).fit().params[0]
         spread = signal2-beta*signal1
         result = coint(signal1, signal2)
@@ -91,9 +78,10 @@ class Pairs:
         pvalue = result[1]
         hurst, _, _ = hurst_exponent(spread)
 
-        if(SHOW_GRAPH and pvalue <= self.pvalue_threshold and hurst <= self.hurst_threshold):
+        if(VERBOSE and pvalue <= pvalue_threshold and hurst <= hurst_threshold):
+            plt.figure(figsize=(12, 6))
             normalized_spread = zscore(spread)
-            normalized_spread.plot(figsize=(12, 6))
+            normalized_spread.plot()
             standard_devitation = np.std(normalized_spread)
             plt.axhline(zscore(spread).mean())
             plt.axhline(standard_devitation, color='green')
@@ -105,3 +93,33 @@ class Pairs:
             plt.show()
 
         return score, pvalue, hurst
+
+    # def compute_PCA(self, n_components=0.1):
+
+    #     scaler = MinMaxScaler()
+    #     data_rescaled = scaler.fit_transform(self.data.T)
+
+    #     pca = PCA(n_components=2)
+    #     pca.fit(data_rescaled)
+
+    #     reduced = pca.transform(data_rescaled)
+
+    #     self.yi=reduced
+
+    #     return reduced
+
+    # def compute_OPTICS(self):
+
+    #     clf = OPTICS()
+    #     print(clf)
+
+    #     clf.fit(self.yi)
+    #     labels = clf.labels_
+    #     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    #     print("Clusters discovered: %d" % n_clusters_)
+
+    #     clustered_series_all = pd.Series(index=self.data.columns, data=labels.flatten())
+    #     clustered_series = clustered_series_all[clustered_series_all != -1]
+
+    #     counts = clustered_series.value_counts()
+    #     print("Pairs to evaluate: %d" % (counts * (counts - 1) / 2).sum())
