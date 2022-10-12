@@ -1,25 +1,35 @@
+
 from class_Pairs import Pairs
 from class_Trader import Trader
-from class_Portfolio import Portfolio
+from class_History import History
 
 
 def main():
 
-    portfolio=Portfolio()
-    portfolio.portfolio1()
-    data_train,data_val=portfolio.get_train_val()
+    portfolios = {'DEFAULT'}
+    pairs_algs={'COINT'}
+    trading_algs={'MA','ARMA'}
 
+    start_date=(2013,1,1)
+    end_date=(2018,1,1)
+
+    # Get Price History
+    series=History()
+    data=series.get_data('DEFAULT',start=start_date,end=end_date)
+
+
+    #SPLIT
+    
 
     # Find Tickers
-    find_pairs=Pairs(data_train)
-    find_pairs.cointegrated_pairs()
-    selected_pairs=find_pairs.get_pairs()
-    print(selected_pairs)
+    selector=Pairs(data)
+    selected_pairs=selector.find_pairs('COINT',verbose=True)
 
-    # Validate Tickers
-    trader=Trader(data_train)
-    trader.set_pairs(selected_pairs)
-    trader.run_simulation('MA')
+    # Test Tickers
+    strategy=Trader(data)
+    strategy.set_pairs(selected_pairs)
+    strategy.run_simulation('MA',verbose=True)
+
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from sklearn.cluster import OPTICS
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-VERBOSE = True
+
 
 
 class Pairs:
@@ -22,30 +22,29 @@ class Pairs:
     A class used to represent trading Pairs
 
     """
+    __PLOT=False
 
     def __init__(self, data):
 
+        
         self.__all_pairs = []
         self.__data = data
         self.__tickers = data.keys()
         self.__start = data.index[0]._date_repr
         self.__end = data.index[-1]._date_repr
 
-    def is_stationary(signal, threshold):
+    def __is_stationary(self,signal, threshold):
 
+        signal=np.asfarray(signal)
         return True if adfuller(signal)[1] < threshold else False
 
 
-    def get_pairs(self):
-        return self.__all_pairs
-
-    def cointegrated_pairs(self):
+    def __cointegrated_pairs(self):
 
         data = self.__data
         tickers = self.__tickers
         n_pairs = len(tickers)
 
-        adfuller_threshold = 1
         pvalue_threshold = 0.05
         hurst_threshold = 0.5  # mean reversing threshold
 
@@ -55,21 +54,17 @@ class Pairs:
 
             signal1 = data[tickers[i]]
 
-            # if self.is_stationary(pair1, adfuller_threshold):
-            #     continue
 
             for j in range(i+1, n_pairs):
 
                 signal2 = data[tickers[j]]
-                # if self.is_stationary(pair2, adfuller_threshold):
-                #     continue
-
-                if self.Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold):
+                
+                if self.__Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold):
                     pairs.append((tickers[i], tickers[j]))
 
         self.__all_pairs = pairs
 
-    def Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
+    def __Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
 
         beta = OLS(signal2, signal1).fit().params[0]
         spread = signal2-beta*signal1
@@ -78,7 +73,7 @@ class Pairs:
         pvalue = result[1]
         hurst, _, _ = hurst_exponent(spread)
   
-        if(VERBOSE and pvalue <= pvalue_threshold and hurst <= hurst_threshold):
+        if(self.__PLOT and pvalue <= pvalue_threshold and hurst <= hurst_threshold):
             plt.figure(figsize=(12, 6))
             normalized_spread = zscore(spread)
             normalized_spread.plot()
@@ -94,32 +89,54 @@ class Pairs:
 
         return True if pvalue <= pvalue_threshold and hurst <= hurst_threshold else False
 
-    # def compute_PCA(self, n_components=0.1):
+    def find_pairs(self,model,verbose=False):
 
-    #     scaler = MinMaxScaler()
-    #     data_rescaled = scaler.fit_transform(self.data.T)
+        function = {'COINT':self.__cointegrated_pairs}
+        function[model]()
+        
+        if verbose:   
+            print("\n************************************************\n",
+                    "\nModel: ",model,
+                    "\nNumber of pairs: ", len( self.__all_pairs),
+                    "\nNumber of unique elements: ",len( np.unique(self.__all_pairs)),
+                    "\nPairs: ",self.__all_pairs,
+                    "\n\n************************************************\n")
+                    
+        return self.__all_pairs
 
-    #     pca = PCA(n_components=2)
-    #     pca.fit(data_rescaled)
+    # def __cointegrated_pairs(self):
 
-    #     reduced = pca.transform(data_rescaled)
+    #     data = self.__data
+    #     tickers = self.__tickers
+    #     n_pairs = len(tickers)
 
-    #     self.yi=reduced
+    #     adfuller_threshold = 0.1
+    #     pvalue_threshold = 0.05
+    #     hurst_threshold = 0.5  # mean reversing threshold
 
-    #     return reduced
+    #     pairs = []
 
-    # def compute_OPTICS(self):
+    #     for i in range(n_pairs):
 
-    #     clf = OPTICS()
-    #     print(clf)
+    #         signal1 = data[tickers[i]]
 
-    #     clf.fit(self.yi)
-    #     labels = clf.labels_
-    #     n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    #     print("Clusters discovered: %d" % n_clusters_)
+    #         if self.__is_stationary(signal1, adfuller_threshold):
 
-    #     clustered_series_all = pd.Series(index=self.data.columns, data=labels.flatten())
-    #     clustered_series = clustered_series_all[clustered_series_all != -1]
+    #             for j in range(i+1, n_pairs):
 
-    #     counts = clustered_series.value_counts()
-    #     print("Pairs to evaluate: %d" % (counts * (counts - 1) / 2).sum())
+    #                 signal2 = data[tickers[j]]
+
+    #                 if self.__is_stationary(signal2, adfuller_threshold):
+                
+    #                     beta = OLS(signal2, signal1).fit().params[0]
+    #                     spread = signal2-beta*signal1
+
+    #                     if self.__is_stationary(spread, adfuller_threshold):
+
+    #                         hurst, _, _ = hurst_exponent(spread)
+
+                            
+    #                         if hurst<hurst_threshold:
+    #                             pairs.append((tickers[i], tickers[j]))
+
+    #     self.__all_pairs = pairs
