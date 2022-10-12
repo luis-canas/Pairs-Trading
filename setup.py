@@ -14,10 +14,12 @@ def main():
     find_pairs=Pairs(data_train)
     find_pairs.cointegrated_pairs()
     selected_pairs=find_pairs.get_pairs()
+    print(selected_pairs)
 
     # Validate Tickers
     trader=Trader(data_train)
     trader.set_pairs(selected_pairs)
+    trader.run_simulation('MA')
 
 
 if __name__ == "__main__":

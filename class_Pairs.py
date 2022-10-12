@@ -13,7 +13,7 @@ from sklearn.cluster import OPTICS
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-VERBOSE = False
+VERBOSE = True
 
 
 class Pairs:
@@ -32,7 +32,9 @@ class Pairs:
         self.__end = data.index[-1]._date_repr
 
     def is_stationary(signal, threshold):
+
         return True if adfuller(signal)[1] < threshold else False
+
 
     def get_pairs(self):
         return self.__all_pairs
@@ -51,20 +53,18 @@ class Pairs:
 
         for i in range(n_pairs):
 
-            pair1 = data[tickers[i]]
-            if (not self.is_stationary(pair1, adfuller_threshold)):
-                continue
+            signal1 = data[tickers[i]]
+
+            # if self.is_stationary(pair1, adfuller_threshold):
+            #     continue
 
             for j in range(i+1, n_pairs):
 
-                pair2 = data[tickers[j]]
-                if(not self.is_stationary(pair2, adfuller_threshold)):
-                    continue
+                signal2 = data[tickers[j]]
+                # if self.is_stationary(pair2, adfuller_threshold):
+                #     continue
 
-                _, pvalue, hurst = self.Engle_Granger(
-                    pair1, pair2, pvalue_threshold, hurst_threshold)
-
-                if pvalue <= pvalue_threshold and hurst <= hurst_threshold:
+                if self.Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold):
                     pairs.append((tickers[i], tickers[j]))
 
         self.__all_pairs = pairs
@@ -77,7 +77,7 @@ class Pairs:
         score = result[0]
         pvalue = result[1]
         hurst, _, _ = hurst_exponent(spread)
-
+  
         if(VERBOSE and pvalue <= pvalue_threshold and hurst <= hurst_threshold):
             plt.figure(figsize=(12, 6))
             normalized_spread = zscore(spread)
@@ -92,7 +92,7 @@ class Pairs:
                      self.__end)
             plt.show()
 
-        return score, pvalue, hurst
+        return True if pvalue <= pvalue_threshold and hurst <= hurst_threshold else False
 
     # def compute_PCA(self, n_components=0.1):
 

@@ -28,7 +28,7 @@ class Portfolio:
         tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
 
         self.__data=yf.download(tickers, start, end)['Close']
-        split=int(len(self.data)*self.__train_val_split)
+        split=int(len(self.__data)*self.__train_val_split)
 
         self.__data_train=self.__data[:split]
         self.__data_val=self.__data[split:]
