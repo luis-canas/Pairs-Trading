@@ -64,25 +64,30 @@ class Trader:
         returns=[]
         open_position=False
         entry=0
-
+        p=0
+        l=0
         for i in range(window,len(spread)):
             if open_position:
                 if zscore_30_1[i]>3.0 or  zscore_30_1[i]<-3.0:
                     open_position=False
                     returns.append(-abs(spread[i]-entry))
+                    l+=1
                 elif zscore_30_1[i]>0 and direction or zscore_30_1[i] < 0 and not direction:   
                     open_position=False             
                     returns.append(abs(spread[i]-entry))
+                    p+=1
                 else:
                     returns.append(0)
             else:
-                if zscore_30_1[i]>1.0 or  zscore_30_1[i]<-1.0:
+                if zscore_30_1[i]>2.0 or  zscore_30_1[i]<-2.0:
                     open_position=True
                     entry=spread[i]
-                    direction=False if  zscore_30_1[i]>1.0 else True
+                    direction=False if  zscore_30_1[i]>2.0 else True
                     
                 returns.append(0)
-
+                
+        print('profit positions=',p)
+        print('stop loss positions=',l)
         if(self.__PLOT):
 
             plt.plot(spread_mavg1.index, spread_mavg1.values)

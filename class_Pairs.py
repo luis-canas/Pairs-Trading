@@ -1,9 +1,11 @@
 
 
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from operator import itemgetter
 from statsmodels.api import OLS
 from statsmodels.tsa.stattools import coint, adfuller
 from hurst import compute_Hc as hurst_exponent
@@ -38,24 +40,47 @@ class Pairs:
         signal=np.asfarray(signal)
         return True if adfuller(signal)[1] < threshold else False
 
-
-    def __cointegrated_pairs(self):
+    def __distance_pairs(self,pair_number =  2):
 
         data = self.__data
         tickers = self.__tickers
-        n_pairs = len(tickers)
+        N = len(tickers)
 
-        pvalue_threshold = 0.05
-        hurst_threshold = 0.5  # mean reversing threshold
+        dic = {}
 
-        pairs = []
-
-        for i in range(n_pairs):
+        for i in range(N):
 
             signal1 = data[tickers[i]]
 
 
-            for j in range(i+1, n_pairs):
+            for j in range(i+1, N):
+
+                signal2 = data[tickers[j]]
+                
+                ssd=sum((np.array(signal1) - np.array(signal2))**2)
+
+                
+                dic[tickers[i], tickers[j]]=ssd
+
+
+        self.__all_pairs = list(dict(sorted(dic.items(), key = itemgetter(1))[:pair_number]).keys())
+
+        
+
+    def __cointegrated_pairs(self, pvalue_threshold = 0.05,hurst_threshold = 0.5):
+
+        data = self.__data
+        tickers = self.__tickers
+        N = len(tickers)
+
+        pairs = []
+
+        for i in range(N):
+
+            signal1 = data[tickers[i]]
+
+
+            for j in range(i+1, N):
 
                 signal2 = data[tickers[j]]
                 
@@ -63,6 +88,8 @@ class Pairs:
                     pairs.append((tickers[i], tickers[j]))
 
         self.__all_pairs = pairs
+
+    
 
     def __Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
 
@@ -91,7 +118,7 @@ class Pairs:
 
     def find_pairs(self,model,verbose=False):
 
-        function = {'COINT':self.__cointegrated_pairs}
+        function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs}
         function[model]()
         
         if verbose:   

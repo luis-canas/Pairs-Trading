@@ -7,7 +7,7 @@ from class_History import History
 def main():
 
     portfolios = {'DEFAULT'}
-    pairs_algs={'COINT'}
+    pairs_algs={'COINT','DIST'}
     trading_algs={'MA','ARMA'}
 
     start_date=(2013,1,1)
