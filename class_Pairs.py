@@ -20,9 +20,11 @@ from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.bitflip import BitflipMutation
 from pymoo.operators.sampling.rnd import BinaryRandomSampling
 from pymoo.optimize import minimize
-from pymoo.visualization.scatter import Scatter
 
-from multiprocessing import Pool
+from tqdm import tqdm
+# from tqdm.auto import tqdm  # notebook compatible
+import time
+
 
 
 class Pairs:
@@ -74,7 +76,8 @@ class Pairs:
         dic = {}
 
         
-        for i in range(N):
+        for i in tqdm(range(N)):
+
             signal1 = data[tickers[i]]
 
             for j in range(i+1, N):
@@ -99,7 +102,7 @@ class Pairs:
 
         pairs = []
 
-        for i in range(N):
+        for i in tqdm(range(N)):
 
             signal1 = data[tickers[i]]
 

@@ -23,7 +23,7 @@ def main():
     
     # Find Tickers
     selector=Pairs(data)
-    selected_pairs=selector.find_pairs('COINT',verbose=True)
+    selected_pairs=selector.find_pairs('COINT',verbose=False)
 
     # Test Tickers
     strategy=Trader(data)
