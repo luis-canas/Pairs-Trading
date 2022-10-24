@@ -12,7 +12,7 @@ class Trader:
 
     __PLOT=False
 
-    def __init__(self,data):
+    def __init__(self,data,):
 
         self.__all_pairs=[]
         self.__data=data
@@ -26,6 +26,58 @@ class Trader:
 
     def __baseline_model(self,signal1,signal2):
         return 0
+
+    def __threshold(self,signal1, signal2,stop_loss=4,entry=2,close=0):
+
+
+        beta = OLS(signal2, signal1).fit().params[0]
+        spread = signal2-beta*signal1
+
+
+        # Compute the z score for each day
+        zs = zscore(spread)
+
+        returns=[]
+        open_position=False
+        initial_value=0
+        p=0
+        l=0
+        for i in range(len(spread)):
+            if open_position:
+                if zs[i]>stop_loss or  zs[i]<-stop_loss:
+                    open_position=False
+                    returns.append(-abs(spread[i]-initial_value))
+                    l+=1
+                elif zs[i]>close and rising or zs[i] < close and not rising:   
+                    open_position=False             
+                    returns.append(abs(spread[i]-initial_value))
+                    p+=1
+                else:
+                    returns.append(0)
+            else:
+                if zs[i]>entry or  zs[i]<-entry:
+                    open_position=True
+                    initial_value=spread[i]
+                    rising=False if  zs[i]>2.0 else True
+                    
+                returns.append(0)
+
+        print('profit positions=',p)
+        print('stop loss positions=',l)
+        if(self.__PLOT):
+
+            plt.plot(zs.index, zs.values)
+            plt.plot(zs.index, zs.values)
+            plt.legend(['1 Day Spread MAVG', '30 Day Spread MAVG'])
+            plt.ylabel('Spread')
+            plt.show()
+
+            plt.plot(zs.index, zs.values)
+            plt.axhline(0, color='black')
+            plt.axhline(1.0, color='red', linestyle='--')
+            plt.show()
+
+        return sum(returns)
 
     def __moving_average(self,signal1, signal2):
 
@@ -105,7 +157,7 @@ class Trader:
 
     def run_simulation(self,model,verbose=False):
 
-        function = {'MA':self.__moving_average}
+        function = {'MA':self.__moving_average,'TH':self.__threshold}
         summary={'Returns':0}
 
         if verbose:

@@ -1,6 +1,5 @@
 
 
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,6 +15,14 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
+from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.operators.crossover.pntx import TwoPointCrossover
+from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.sampling.rnd import BinaryRandomSampling
+from pymoo.optimize import minimize
+from pymoo.visualization.scatter import Scatter
+
+from multiprocessing import Pool
 
 
 class Pairs:
@@ -40,7 +47,25 @@ class Pairs:
         signal=np.asfarray(signal)
         return True if adfuller(signal)[1] < threshold else False
 
-    def __distance_pairs(self,pair_number =  2):
+    
+    def __nsga2(self):
+
+    
+
+        algorithm = NSGA2(pop_size=100,
+                        sampling=BinaryRandomSampling(),
+                        crossover=TwoPointCrossover(),
+                        mutation=BitflipMutation(),
+                        eliminate_duplicates=True)
+
+        res = minimize(self.__cointegrated_pairs,
+                    algorithm,
+                    ('n_gen', 500),
+                    seed=1,
+                    verbose=False)
+
+
+    def __distance_pairs(self,pair_number =  20):
 
         data = self.__data
         tickers = self.__tickers
@@ -48,10 +73,9 @@ class Pairs:
 
         dic = {}
 
+        
         for i in range(N):
-
             signal1 = data[tickers[i]]
-
 
             for j in range(i+1, N):
 
@@ -79,7 +103,6 @@ class Pairs:
 
             signal1 = data[tickers[i]]
 
-
             for j in range(i+1, N):
 
                 signal2 = data[tickers[j]]
@@ -91,7 +114,7 @@ class Pairs:
 
     
 
-    def __Engle_Granger(self, signal1, signal2, pvalue_threshold, hurst_threshold):
+    def __Engle_Granger(self, signal1, signal2, pvalue_threshold=0.05, hurst_threshold=0.5):
 
         beta = OLS(signal2, signal1).fit().params[0]
         spread = signal2-beta*signal1
@@ -118,18 +141,20 @@ class Pairs:
 
     def find_pairs(self,model,verbose=False):
 
-        function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs}
+        function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs,}
         function[model]()
         
         if verbose:   
             print("\n************************************************\n",
                     "\nModel: ",model,
+                    "\nTotal number of elements: ", len(self.__tickers),
                     "\nNumber of pairs: ", len( self.__all_pairs),
-                    "\nNumber of unique elements: ",len( np.unique(self.__all_pairs)),
+                    "\nNumber of unique elements in pairs: ",len( np.unique(self.__all_pairs)),
                     "\nPairs: ",self.__all_pairs,
                     "\n\n************************************************\n")
                     
         return self.__all_pairs
+
 
     # def __cointegrated_pairs(self):
 
@@ -167,3 +192,7 @@ class Pairs:
     #                             pairs.append((tickers[i], tickers[j]))
 
     #     self.__all_pairs = pairs
+
+
+
+
