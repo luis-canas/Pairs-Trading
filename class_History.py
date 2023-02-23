@@ -1,7 +1,7 @@
 
 
-from pandas_datareader import data
-from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+# from pandas_datareader import data
+# from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
 import pandas as pd
 from datetime import datetime
 import yfinance as yf
@@ -17,10 +17,10 @@ class History:
         self.__start=[]
         self.__end=[]
 
-    def set_date(self,start_y,start_m,start_d,end_y,end_m,end_d):
+    def set_date(self,start,end):
 
-        self.__start = datetime(start_y,start_m,start_d)
-        self.__end = datetime(end_y,end_m,end_d)
+        self.__start = datetime(*start)
+        self.__end = datetime(*end)
 
 
     def get_data(self,history):
@@ -60,6 +60,6 @@ class History:
 
         return data
 
-    def __pickle(self):
+    def __pickle(self):      
 
-        return pd.read_pickle('commodity_ETFs_from_2014_complete.pickle')
+        return pd.read_pickle('commodity_ETFs_interpolated_screened.pickle')

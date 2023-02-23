@@ -21,11 +21,66 @@ class Trader:
         
         self.__all_pairs=pairs
 
-    def __ARMA_model(self,signal1,signal2):
+    def __ARIMA_model(self,signal1,signal2):
         return 
 
     def __baseline_model(self,signal1,signal2):
         return 0
+
+    # def __threshold(self,signal1, signal2,stop_loss=4,entry=2,close=0):
+
+
+    #     beta = OLS(signal2, signal1).fit().params[0]
+    #     spread = signal2-beta*signal1
+
+
+    #     # Compute the z score for each day
+    #     zs = zscore(spread)
+
+    #     returns=[]
+    #     open_position=False
+    #     initial_value=0
+    #     p=0
+    #     l=0
+    #     for i in range(len(spread)):
+    #         if open_position:
+    #             if zs[i]>stop_loss or  zs[i]<-stop_loss:
+    #                 open_position=False
+    #                 returns.append(-abs(spread[i]-initial_value))
+    #                 l+=1
+    #             elif zs[i]>close and rising or zs[i] < close and not rising:   
+    #                 open_position=False             
+    #                 returns.append(abs(spread[i]-initial_value))
+    #                 p+=1
+    #             else:
+    #                 returns.append(0)
+    #         else:
+    #             if zs[i]>entry or  zs[i]<-entry:
+    #                 open_position=True
+    #                 initial_value=spread[i]
+    #                 rising=False if  zs[i]>2.0 else True
+                    
+    #             returns.append(0)
+
+    #     print('profit positions=',p)
+    #     print('stop loss positions=',l)
+    #     if(self.__PLOT):
+
+    #         plt.plot(zs.index, zs.values)
+    #         plt.plot(zs.index, zs.values)
+    #         plt.legend(['1 Day Spread MAVG', '30 Day Spread MAVG'])
+    #         plt.ylabel('Spread')
+    #         plt.show()
+
+    #         plt.plot(zs.index, zs.values)
+    #         plt.axhline(0, color='black')
+    #         plt.axhline(1.0, color='blue', linestyle='--')
+    #         plt.axhline(2.0, color='red', linestyle='--')
+    #         plt.axhline(-1.0, color='blue', linestyle='--')
+    #         plt.axhline(-2.0, color='red', linestyle='--')
+    #         plt.show()
+
+    #     return sum(returns)
 
     def __threshold(self,signal1, signal2,stop_loss=4,entry=2,close=0):
 
@@ -33,49 +88,48 @@ class Trader:
         beta = OLS(signal2, signal1).fit().params[0]
         spread = signal2-beta*signal1
 
+        normalized_spread = zscore(spread)
+        standard_devitation = np.std(normalized_spread)
 
-        # Compute the z score for each day
-        zs = zscore(spread)
+        close=0
 
+        zs = normalized_spread
         returns=[]
         open_position=False
         initial_value=0
         p=0
         l=0
-        for i in range(len(spread)):
+        loss=False
+        for i in range(len(normalized_spread)):
             if open_position:
-                if zs[i]>stop_loss or  zs[i]<-stop_loss:
+                if zs[i]>stop_loss and not below or  zs[i]<-stop_loss and below:
                     open_position=False
-                    returns.append(-abs(spread[i]-initial_value))
+                    loss=True
                     l+=1
-                elif zs[i]>close and rising or zs[i] < close and not rising:   
-                    open_position=False             
-                    returns.append(abs(spread[i]-initial_value))
-                    p+=1
-                else:
-                    returns.append(0)
-            else:
-                if zs[i]>entry or  zs[i]<-entry:
-                    open_position=True
-                    initial_value=spread[i]
-                    rising=False if  zs[i]>2.0 else True
+                    returns.append(-abs(spread[i]-initial_value))
                     
-                returns.append(0)
+                elif zs[i]>close and below or zs[i] < close and not below:   
+                    open_position=False             
+                    p+=1
+                    returns.append(abs(spread[i]-initial_value))
 
-        print('profit positions=',p)
-        print('stop loss positions=',l)
-        if(self.__PLOT):
+                else:
+                    returns.append(0) 
+            else:
+                if (zs[i]>entry and zs[i]>0  or zs[i]<-entry and zs[i]<0) and not loss:
+                    open_position=True
+                    below=False if  zs[i]>0 else True
+                    initial_value=spread[i]
+                    
+                   
+                if (zs[i]<entry and zs[i]>0  or zs[i]>-entry and zs[i]<0) and loss:
+                    open_position=True
+                    below=False if  zs[i]>0 else True
+                    loss=False
+                    initial_value=spread[i]
+                    
+                   
 
-            plt.plot(zs.index, zs.values)
-            plt.plot(zs.index, zs.values)
-            plt.legend(['1 Day Spread MAVG', '30 Day Spread MAVG'])
-            plt.ylabel('Spread')
-            plt.show()
-
-            plt.plot(zs.index, zs.values)
-            plt.axhline(0, color='black')
-            plt.axhline(1.0, color='red', linestyle='--')
-            plt.show()
 
         return sum(returns)
 
@@ -83,7 +137,7 @@ class Trader:
 
         "https://www.quantrocket.com/codeload/quant-finance-lectures/quant_finance_lectures/Lecture42-Introduction-to-Pairs-Trading.ipynb.html"
 
-        window = 30
+        window = 10
         rolling_beta = [np.nan] * window
         for n in range(window, len(signal1)):
             y = signal1[(n - window):n]
@@ -100,7 +154,7 @@ class Trader:
         spread_mavg1.name = 'spread 1d mavg'
 
         # Get the 30 day moving average
-        spread_mavg30 = spread.rolling(30).mean()
+        spread_mavg30 = spread.rolling(window).mean()
         spread_mavg30.name = 'spread 30d mavg'
 
 
@@ -150,7 +204,10 @@ class Trader:
 
             plt.plot(zscore_30_1.index, zscore_30_1.values)
             plt.axhline(0, color='black')
-            plt.axhline(1.0, color='red', linestyle='--')
+            plt.axhline(1.0, color='blue', linestyle='--')
+            plt.axhline(2.0, color='red', linestyle='--')
+            plt.axhline(-1.0, color='blue', linestyle='--')
+            plt.axhline(-2.0, color='red', linestyle='--')
             plt.show()
 
         return sum(returns)
@@ -179,3 +236,5 @@ class Trader:
         
         print("Portfolio returns: ",summary['Returns'],
                 "\n\n************************************************\n")
+
+#antonio canelas sac ga tecnica de reconhecimento de padroes

@@ -2,33 +2,34 @@
 from class_Pairs import Pairs
 from class_Trader import Trader
 from class_History import History
-
+from utils import dataframe_interval
 
 def main():
 
     portfolios = {'DEFAULT','PICKLE'}
-    pairs_algs={'COINT','DIST'}
+    pairs_algs={'COINT','DIST','NSGA'}
     trading_algs={'MA','ARMA','TH'}
 
-    start_date=(2013,1,1)
+    start_date=(2017,1,1)
     end_date=(2018,1,1)
 
     # Get Price History
     series=History()
-    series.set_date(*start_date,*end_date)
-    data=series.get_data('DEFAULT')
-
+    series.set_date(start_date,end_date)
+    data=series.get_data('PICKLE')
 
     #SPLIT
-    
+    data=dataframe_interval(start_date,end_date,data)
+    print(data)
+
     # Find Tickers
     selector=Pairs(data)
-    selected_pairs=selector.find_pairs('COINT',verbose=False)
+    selected_pairs=selector.find_pairs('NSGA',verbose=True,plot=True)
 
     # Test Tickers
     strategy=Trader(data)
     strategy.set_pairs(selected_pairs)
-    strategy.run_simulation('TH',verbose=True)
+    strategy.run_simulation('TH',verbose=False)
 
 
 
