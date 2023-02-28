@@ -2,7 +2,7 @@
 from class_Pairs import Pairs
 from class_Trader import Trader
 from class_History import History
-from utils import dataframe_interval
+from utils import dataframe_interval,compute_pca
 
 def main():
 
@@ -16,11 +16,15 @@ def main():
     # Get Price History
     series=History()
     series.set_date(start_date,end_date)
-    data=series.get_data('PICKLE')
+    data=series.get_data('DEFAULT')
+    data=dataframe_interval(start_date,end_date,data)
+
+    data=compute_pca(11,data.T).T
+
 
     #SPLIT
-    data=dataframe_interval(start_date,end_date,data)
-    print(data)
+
+
 
     # Find Tickers
     selector=Pairs(data)

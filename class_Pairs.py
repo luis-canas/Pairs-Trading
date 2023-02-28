@@ -192,8 +192,8 @@ class Pairs:
         self.__all_pairs = []
         self.__data = data
         self.__tickers = data.keys()
-        self.__start = data.index[0]._date_repr
-        self.__end = data.index[-1]._date_repr
+        # self.__start = data.index[0]._date_repr
+        # self.__end = data.index[-1]._date_repr
 
 
     def __nsga2(self,verbose=False,plot=False):

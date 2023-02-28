@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from datetime import datetime
+from sklearn import preprocessing
+from sklearn.decomposition import PCA
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
@@ -121,3 +124,26 @@ def dataframe_interval(start, end,data):
     mask = (data.index > start_date) & (data.index <= end_date)
 
     return data.loc[mask]
+
+def compute_pca(n_components, df, svd_solver='auto', random_state=0):
+    """
+    This function applies Principal Component Analysis to the df given as
+    parameter
+
+    :param n_components: number of principal components
+    :param df: dataframe containing time series for analysis
+    :param svd_solver: solver for PCA: see PCA documentation
+    :return: reduced normalized and transposed df
+    """
+
+    if not isinstance(n_components, str):
+        if n_components > df.shape[1]:
+            print("ERROR: number of components larger than samples...")
+            exit()
+
+    pca = PCA(n_components=n_components, svd_solver=svd_solver, random_state=random_state)
+
+    df2 = pd.DataFrame(pca.fit_transform(df), index=df.index)
+    
+
+    return df2
