@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime
 import yfinance as yf
 import pickle
+from os.path import isfile
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -25,7 +26,7 @@ class History:
 
     def get_data(self,history):
 
-        function = {'DEFAULT':self.__default,'PICKLE':self.__pickle}
+        function = {'DEFAULT':self.__default,'PORTFOLIO':self.__portfolio,'PICKLE':self.__pickle}
 
         
         return function[history]()
@@ -43,21 +44,28 @@ class History:
 
 
     def __portfolio(self):
-
+        index='s&p500'
+        sector='Financials'
 
         start = self.__start
         end = self.__end
 
-        df = pd.read_csv('nasdaq_screener.csv')
+        if not isfile(f'data/{index}_{sector}.csv'):
+            df = pd.read_csv(f'data/{index}_screener.csv',encoding='latin1')
 
-        mask=df['Sector'].str.contains('Finance')
-        mask=mask.where(pd.notnull(mask), False).tolist()
-        tickers=df['Symbol']
-        tickers=tickers[mask].tolist()
+            mask=df['Sector'].str.contains(sector)
+            mask=mask.where(pd.notnull(mask), False).tolist()
+            tickers=df['Symbol']
+            tickers=tickers[mask].tolist()
 
-
-        data= data.get_data_yahoo(tickers,start=start,end=end)['Close']
-
+            try:
+                data=yf.download(tickers,start=start,end=end)['Close']
+            except Exception as e:
+                pass
+            
+            data.to_csv(f'data/{index}_{sector}.csv')
+        else:
+            data = pd.read_csv(f'data/{index}_{sector}.csv',index_col='Date')
         return data
 
     def __pickle(self):      

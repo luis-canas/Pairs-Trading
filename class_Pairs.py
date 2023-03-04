@@ -140,6 +140,7 @@ class Objectives(ElementwiseProblem):
     def __coint_spread(self,s2, s1):
         S1 = np.asarray(s1)
         S2 = np.asarray(s2)
+
         S1_c = sm.add_constant(S1)
 
         results = sm.OLS(S2, S1_c).fit()

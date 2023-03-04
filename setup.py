@@ -16,10 +16,11 @@ def main():
     # Get Price History
     series=History()
     series.set_date(start_date,end_date)
-    data=series.get_data('DEFAULT')
+    data=series.get_data('PORTFOLIO')
+
     data=dataframe_interval(start_date,end_date,data)
 
-    data=compute_pca(11,data.T).T
+    # data=compute_pca(11,data.T).T
 
 
     #SPLIT
@@ -28,7 +29,7 @@ def main():
 
     # Find Tickers
     selector=Pairs(data)
-    selected_pairs=selector.find_pairs('NSGA',verbose=True,plot=True)
+    selected_pairs=selector.find_pairs('DIST',verbose=True,plot=False)
 
     # Test Tickers
     strategy=Trader(data)

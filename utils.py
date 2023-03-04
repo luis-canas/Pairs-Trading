@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import csv
 from datetime import datetime
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
@@ -118,8 +119,8 @@ def results_to_tickers(res, tickers):
 
 def dataframe_interval(start, end,data):
 
-    start_date = datetime(*start).strftime("%Y/%m/%d")
-    end_date = datetime(*end).strftime("%Y/%m/%d")
+    start_date = datetime(*start).strftime("%Y-%m-%d")
+    end_date = datetime(*end).strftime("%Y-%m-%d")
 
     mask = (data.index > start_date) & (data.index <= end_date)
 
@@ -147,3 +148,31 @@ def compute_pca(n_components, df, svd_solver='auto', random_state=0):
     
 
     return df2
+
+def stock_screener(filename,target,sector,start,end):
+
+    file=filename+target+'_screener.csv'
+    df=pd.read_csv(file,encoding='latin1')
+
+
+    mask=df['Sector'].str.contains(sector)
+    mask=mask.where(pd.notnull(mask), False).tolist()
+    tickers=df['Symbol']
+    tickers=tickers[mask].tolist()
+
+    file = open(filename+target+'_'+sector+'.csv', 'w+')
+    file = csv.writer(file)
+    tickers.insert(0,'')
+    file.writerow(tickers)
+
+    end=(2023-end)*365
+    start=(2023-start)*365
+    file.writerow([f'=STOCKHISTORY(B1,NOW()-{start},NOW()-{end},,0)','',f'=STOCKHISTORY(C1,NOW()-{start},NOW()-{end},,0,1)'])
+
+    return tickers
+
+# stock_screener('data/','s&p500','Industrials',2010,2020)
+
+# df=pd.read_csv('data/s&p500_Financials.csv')
+# df.index=df['Date']
+# print(df)
