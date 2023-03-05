@@ -17,19 +17,22 @@ def main():
     series=History()
     series.set_date(start_date,end_date)
     data=series.get_data('PORTFOLIO')
+    selector=Pairs(data)
+    strategy=Trader(data)
+
 
 
     #SPLIT
     train_start=(2015,1,1)
     train_end=(2016,1,1)
-    test_start=start_date=(2016,1,1)
+    test_start=(2016,1,1)
     test_end=(2017,1,1)
+    
     # Find Tickers
-    selector=Pairs(data)
+    selector.set_date(train_start,train_end)
     selected_pairs=selector.find_pairs('DIST',verbose=False,plot=False)
 
     # Test Tickers
-    strategy=Trader(data)
     strategy.set_pairs(selected_pairs)
     strategy.set_dates(train_start,train_end,test_start,test_end)
     strategy.run_simulation('TH',verbose=False,plot=False)

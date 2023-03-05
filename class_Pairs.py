@@ -31,7 +31,7 @@ from tqdm import tqdm
 from pymoo.core.problem import ElementwiseProblem
 
 
-from utils import results_to_tickers,study_results,price_of_entire_component
+from utils import *
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
 
@@ -183,10 +183,18 @@ class Pairs:
 
         
         self.__all_pairs = []
+        self.__entire_data = data
         self.__data = data
         self.__tickers = data.keys()
-        # self.__start = data.index[0]._date_repr
-        # self.__end = data.index[-1]._date_repr
+        self.__start = data.index[0]
+        self.__end = data.index[-1]
+
+    def set_date(self,start,end):
+
+        self.__start = date_string(start)
+        self.__end = date_string(end)
+        self.__data = dataframe_interval(self.__start, self.__end,self.__entire_data)
+        self.__tickers = self.__data.keys()
 
 
     def __nsga2(self,verbose,plot):

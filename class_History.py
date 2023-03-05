@@ -8,6 +8,7 @@ import yfinance as yf
 import pickle
 from os.path import isfile
 
+from utils import date_string
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -20,8 +21,8 @@ class History:
 
     def set_date(self,start,end):
 
-        self.__start = datetime(*start)
-        self.__end = datetime(*end)
+        self.__start = start
+        self.__end = end
 
 
     def get_data(self,history):
@@ -34,8 +35,8 @@ class History:
     def __default(self):
 
 
-        start = self.__start
-        end = self.__end
+        start = datetime(*self.__start)
+        end = datetime(*self.__end)
 
         tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
 
@@ -50,7 +51,7 @@ class History:
         start = self.__start
         end = self.__end
 
-        if not isfile(f'data/{index}_{sector}.csv'):
+        if not isfile(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
             df = pd.read_csv(f'data/{index}_screener.csv',encoding='latin1')
 
             mask=df['Sector'].str.contains(sector)
@@ -58,14 +59,14 @@ class History:
             tickers=df['Symbol']
             tickers=tickers[mask].tolist()
 
-            try:
-                data=yf.download(tickers,start=start,end=end)['Close']
-            except Exception as e:
-                pass
+            data=yf.download(tickers,start=datetime(*start),end=datetime(*end))['Close']
             
-            data.to_csv(f'data/{index}_{sector}.csv')
+            nan_value = float("NaN")
+            data.replace("", nan_value, inplace=True)
+            data.dropna(how='all', axis=1, inplace=True)
+            data.to_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
         else:
-            data = pd.read_csv(f'data/{index}_{sector}.csv',index_col='Date')
+            data = pd.read_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
         return data
 
     def __pickle(self):      
