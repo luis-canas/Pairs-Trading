@@ -3,8 +3,10 @@ import numpy as np
 import pandas as pd
 import csv
 from datetime import datetime
-from sklearn import preprocessing
+
+import statsmodels.api as sm
 from sklearn.decomposition import PCA
+import random
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
@@ -117,14 +119,30 @@ def results_to_tickers(res, tickers):
 
     return pairs
 
-def dataframe_interval(start, end,data):
+def dataframe_interval(start_date, end_date,data):
 
-    start_date = datetime(*start).strftime("%Y-%m-%d")
-    end_date = datetime(*end).strftime("%Y-%m-%d")
 
     mask = (data.index > start_date) & (data.index <= end_date)
 
     return data.loc[mask]
+
+def date_string(date):
+    
+    return datetime(*date).strftime("%Y-%m-%d")
+
+def coint_spread(c1,c2):
+    S1 = np.asarray(c1)
+    S2 = np.asarray(c2)
+    S1_c = sm.add_constant(S1)
+
+    results = sm.OLS(S1_c, S2).fit()
+
+    b = results.params[0][1]
+
+    coint_spread = c1 - b*c2
+
+    return b, coint_spread
+
 
 def compute_pca(n_components, df, svd_solver='auto', random_state=0):
     """
@@ -149,6 +167,33 @@ def compute_pca(n_components, df, svd_solver='auto', random_state=0):
 
     return df2
 
+
+
+
+def compute_zscore(full_spread, test_spread, offset, normalization_period):
+    NB_TRADING_DAYS = normalization_period
+
+    norm_spread = np.zeros(len(test_spread))
+
+    mean = np.zeros(len(test_spread))
+    std = np.zeros(len(test_spread))
+    t_spread = np.zeros(len(test_spread))
+    
+
+    for day, daily_value in enumerate(test_spread):
+        spread_to_consider = full_spread[(day + offset) - NB_TRADING_DAYS : (day + offset)] #one year
+
+        norm_spread[day] = (daily_value - spread_to_consider.mean()) / np.std(spread_to_consider) 
+
+        mean[day] = spread_to_consider.mean()
+        std[day] = spread_to_consider.std()
+        t_spread[day] = daily_value
+   
+
+    return norm_spread, mean, std, t_spread
+
+    return spread
+
 def stock_screener(filename,target,sector,start,end):
 
     file=filename+target+'_screener.csv'
@@ -171,8 +216,11 @@ def stock_screener(filename,target,sector,start,end):
 
     return tickers
 
-# stock_screener('data/','s&p500','Industrials',2010,2020)
+def price_of_entire_component(series, component):
+    if not any(component):
+        return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
 
-# df=pd.read_csv('data/s&p500_Financials.csv')
-# df.index=df['Date']
-# print(df)
+
+    combined_series = series.iloc[:, component].sum(axis=1)
+
+    return combined_series

@@ -6,132 +6,197 @@ import matplotlib.pyplot as plt
 from statsmodels.api import OLS
 from statsmodels.tsa.arima_model import ARMA, ARIMA
 
-from scipy.stats import zscore
+from utils import *
+
+LONG_SPREAD = 1
+SHORT_SPREAD = -1
+CLOSE_POSITION = 0
+
+NB_TRADING_DAYS = 252
 
 class Trader:
 
     __PLOT=False
 
-    def __init__(self,data,):
+    def __init__(self,data):
 
         self.__all_pairs=[]
+        self.__training_start=[]
+        self.__training_end=[]
+        self.__testing_start=[]
+        self.__testing_end=[]
         self.__data=data
+        self.__tickers=data.keys()
 
     def set_pairs(self,pairs):
         
         self.__all_pairs=pairs
 
-    def __ARIMA_model(self,signal1,signal2):
-        return 
+    def set_dates(self,train_start,train_end,test_start,test_end):
+        
+        self.__train_start=date_string(train_start)
+        self.__train_end=date_string(train_end)
+        self.__test_start=date_string(test_start)
+        self.__test_end=date_string(test_end)
 
-    def __baseline_model(self,signal1,signal2):
-        return 0
+    def __threshold(self,spread,stop_loss=4,entry=2,close=0):
 
-    def __threshold(self,signal1, signal2,stop_loss=4,entry=2,close=0):
+        longs_entry = spread < -entry
+        longs_exit = spread > -close
 
+        shorts_entry = spread > entry
+        shorts_exit = spread < close
 
-        beta = OLS(signal2, signal1).fit().params[0]
-        spread = signal2-beta*signal1
+        stabilizing_threshold = 5
+        # in the first 5 days of trading no trades will be made to stabilize the spread
+        longs_entry[:stabilizing_threshold] = False
+        longs_exit[:stabilizing_threshold] = False
+        shorts_entry[:stabilizing_threshold] = False
+        shorts_exit[:stabilizing_threshold] = False
 
+        #numerical_units long/short - equivalent to the long/short_entry arrays but with integers instead of booleans
+        num_units_long = pd.Series([np.nan for i in range(len(spread))])
+        num_units_short = pd.Series([np.nan for i in range(len(spread))])
 
-        # Compute the z score for each day
-        zs = zscore(spread)
+        num_units_long[longs_entry] = LONG_SPREAD
+        num_units_long[longs_exit] = CLOSE_POSITION
+        num_units_short[shorts_entry] = SHORT_SPREAD
+        num_units_short[shorts_exit] = CLOSE_POSITION
 
-        returns=[]
-        open_position=False
-        initial_value=0
-        p=0
-        l=0
-        for i in range(len(spread)):
-            if open_position:
-                if zs[i]>stop_loss or  zs[i]<-stop_loss:
-                    open_position=False
-                    returns.append(-abs(spread[i]-initial_value))
-                    l+=1
-                elif zs[i]>close and rising or zs[i] < close and not rising:   
-                    open_position=False             
-                    returns.append(abs(spread[i]-initial_value))
-                    p+=1
-                else:
-                    returns.append(0)
-            else:
-                if zs[i]>entry or  zs[i]<-entry:
-                    open_position=True
-                    initial_value=spread[i]
-                    rising=False if  zs[i]>2.0 else True
-                    
-                returns.append(0)
+        #a bit redundant, the stabilizing threshold ensures this
+        num_units_long[0] = CLOSE_POSITION
+        num_units_short[0] = CLOSE_POSITION
 
-        print('profit positions=',p)
-        print('stop loss positions=',l)
-        if(self.__PLOT):
+        #completes the array by propagating the last valid observation
+        num_units_long = num_units_long.fillna(method='ffill')
+        num_units_short = num_units_short.fillna(method='ffill')
 
-            plt.plot(zs.index, zs.values)
-            plt.plot(zs.index, zs.values)
-            plt.legend(['1 Day Spread MAVG', '30 Day Spread MAVG'])
-            plt.ylabel('Spread')
-            plt.show()
+        #concatenation of both arrays in a single decision array
+        num_units = num_units_long + num_units_short
+        trade_array = pd.Series(data=num_units.values, index=spread.index)
 
-            plt.plot(zs.index, zs.values)
-            plt.axhline(0, color='black')
-            plt.axhline(1.0, color='blue', linestyle='--')
-            plt.axhline(2.0, color='red', linestyle='--')
-            plt.axhline(-1.0, color='blue', linestyle='--')
-            plt.axhline(-2.0, color='red', linestyle='--')
-            plt.show()
-
-        return sum(returns)
-
-    def __threshold_model(self,signal1, signal2,stop_loss=4,entry=2,close=0):
+        return trade_array
 
 
-        beta = OLS(signal2, signal1).fit().params[0]
-        spread = signal2-beta*signal1
+    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1):
+        
+        trade_array[-1] = CLOSE_POSITION  # Close all positions in the last day of the trading period whether they have converged or not
 
-        normalized_spread = zscore(spread)
-        standard_devitation = np.std(normalized_spread)
+        # define trading costs
+        fixed_costs_per_trade = (commission + market_impact) / 100  # remove percentage
+        short_costs_per_day = FIXED_VALUE * (short_loan / NB_TRADING_DAYS) / 100  # remove percentage
 
-        close=0
+        # 2 positions, one for each component of the pair
+        stocks_in_hand = np.zeros(2)  # The first position concerns the fist component, c1, and 2nd the c2
+        cash_in_hand = np.zeros(len(trade_array))  # tracks the evolution of the balance day by day
+        cash_in_hand[0] = FIXED_VALUE  # starting balance
+        portfolio_value = np.zeros(len(trade_array))
+        portfolio_value[0] = cash_in_hand[0]
 
-        zs = normalized_spread
-        returns=[]
-        open_position=False
-        initial_value=0
-        p=0
-        l=0
-        loss=False
-        for i in range(len(normalized_spread)):
-            if open_position:
-                if zs[i]>stop_loss and not below or  zs[i]<-stop_loss and below:
-                    open_position=False
-                    loss=True
-                    l+=1
-                    returns.append(-abs(spread[i]-initial_value))
-                    
-                elif zs[i]>close and below or zs[i] < close and not below:   
-                    open_position=False             
-                    p+=1
-                    returns.append(abs(spread[i]-initial_value))
+        n_trades = 0  # how many trades were made?
+        profitable_unprofitable = np.zeros(2)  # how many profitable/unprofitable trades were made
 
-                else:
-                    returns.append(0) 
-            else:
-                if (zs[i]>entry and zs[i]>0  or zs[i]<-entry and zs[i]<0) and not loss:
-                    open_position=True
-                    below=False if  zs[i]>0 else True
-                    initial_value=spread[i]
-                    
-                   
-                if (zs[i]<entry and zs[i]>0  or zs[i]>-entry and zs[i]<0) and loss:
-                    open_position=True
-                    below=False if  zs[i]>0 else True
-                    loss=False
-                    initial_value=spread[i]
-                    
-                   
+        days_open = np.zeros(len(trade_array))  # how many days has this position been open?
+
+        for day, decision in enumerate(trade_array):
+            # the first day of trading is excluded to stabilize the spread
+            # and avoid  accessing positions out of range in the decision array when executing decision_array[day-1]
+            if day == 0:
+                continue  # skip the first day as mentioned above
+
+            # at the beginning of the day we still have the cash we had the day before
+            cash_in_hand[day] = cash_in_hand[day - 1]
+            portfolio_value[day] = portfolio_value[day - 1]
+
+            # at the beginning of the day the position hasn't been altered
+            days_open[day] = days_open[day-1]
+
+            if trade_array[day] != trade_array[day - 1]:  # the state has changed and the TS is called to act
+
+                n_trades += 1
 
 
-        return sum(returns)
+                sale_value = stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+                cash_in_hand[day] += sale_value * (1 - 2*fixed_costs_per_trade) # 2 closes, so 2*transaction costs
+
+                stocks_in_hand[0] = stocks_in_hand[1] = 0  # both positions were closed
+
+                days_open[day] = 0  # the new position was just opened
+
+                if sale_value > 0:
+                    profitable_unprofitable[0] += 1  # profit
+                elif sale_value < 0:
+                    profitable_unprofitable[1] += 1  # loss
+
+
+                if decision == SHORT_SPREAD:  # if the new decision is to SHORT the spread
+                    value_to_buy = min(FIXED_VALUE, cash_in_hand[day]) # if the previous trades lost money I have less than FIXED VALUE to invest
+                    # long c2
+                    cash_in_hand[day] += -value_to_buy
+                    stocks_in_hand[1] = value_to_buy / c2[day]
+                    # short c1
+                    cash_in_hand[day] += value_to_buy
+                    stocks_in_hand[0] = -value_to_buy / c1[day]
+                    # apply transaction costs (with 2 operations made: short + long)
+                    cash_in_hand[day] -= 2*value_to_buy*fixed_costs_per_trade
+
+                elif decision == LONG_SPREAD:  # if the new decision is to LONG the spread
+                    value_to_buy = min(FIXED_VALUE, cash_in_hand[day])
+                    # long c1
+                    cash_in_hand[day] += -value_to_buy
+                    stocks_in_hand[0] = value_to_buy / c1[day]
+                    # short c2
+                    cash_in_hand[day] += value_to_buy
+                    stocks_in_hand[1] = -value_to_buy / c2[day]
+                    # apply transaction costs (with 2 operations made: short + long)
+                    cash_in_hand[day] -= 2 * value_to_buy * fixed_costs_per_trade
+
+            # short rental costs are applied daily!
+            if stocks_in_hand[0] != 0 or stocks_in_hand[1] != 0:  # means there's an open position
+                cash_in_hand[day] -= short_costs_per_day
+                days_open[day] += 1
+            # at the end of the day, the portfolio value takes in consideration the value of the stocks in hand
+            portfolio_value[day] = cash_in_hand[day] + stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+
+        return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
+    
+    def __threshold_model(self,verbose,plot):
+
+
+        data=self.__data
+        tickers=self.__tickers
+        all_pairs=self.__all_pairs
+
+        for pair in all_pairs:
+
+            component1=pair[0]
+            component2=pair[1]
+
+            component1 = [(ticker in component1) for ticker in tickers]
+            component2 = [(ticker in component2) for ticker in tickers]
+
+            c1 = price_of_entire_component(data, component1)
+            c2 = price_of_entire_component(data, component2)
+
+            c1_train=dataframe_interval(self.__train_start,self.__train_end,c1)
+            c2_train=dataframe_interval(self.__train_start,self.__train_end,c2)
+
+            c1_test=dataframe_interval(self.__test_start,self.__test_end,c1)
+            c2_test=dataframe_interval(self.__test_start,self.__test_end,c2)
+
+            beta,_=coint_spread(c1_train,c2_train)
+
+            spread=c1-beta*c2
+
+            norm_spread=compute_zscore(spread)
+
+            trade_array=self.__threshold(spread=norm_spread)
+            
+            n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(spread)
+
+        return 1
+
+   
 
     def __moving_average(self,signal1, signal2):
 
@@ -212,30 +277,31 @@ class Trader:
 
         return sum(returns)
 
-    def run_simulation(self,model,verbose=False):
+    def run_simulation(self,model,verbose=False,plot=False):
 
         function = {'MA':self.__moving_average,'TH':self.__threshold_model}
         summary={'Returns':0}
 
-        if verbose:
-            print("\n************************************************\n",
-                    "\nModel: ",model)
+        function[model](verbose=verbose,plot=plot)
+        # if verbose:
+        #     print("\n************************************************\n",
+        #             "\nModel: ",model)
 
-        for signal1,signal2 in self.__all_pairs:
+        # for signal1,signal2 in self.__all_pairs:
             
 
-            returns=function[model](self.__data[signal1],self.__data[signal2])
-            summary['Returns']+=returns
+        #     returns=function[model](self.__data[signal1],self.__data[signal2])
+        #     summary['Returns']+=returns
 
-            if verbose:
-                print("Pair ({}-{}) returns: {}".format(signal1,signal2,returns))
+        #     if verbose:
+        #         print("Pair ({}-{}) returns: {}".format(signal1,signal2,returns))
 
                 
 
 
         
-        print("Portfolio returns: ",summary['Returns'],
-                "\n\n************************************************\n")
+        # print("Portfolio returns: ",summary['Returns'],
+        #         "\n\n************************************************\n")
 
     # def threshold_trading_HALF(b, verbose, normalization_period, close_if_inactive, entry, exit):
 

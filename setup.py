@@ -10,31 +10,29 @@ def main():
     pairs_algs={'COINT','DIST','NSGA'}
     trading_algs={'MA','ARMA','TH'}
 
-    start_date=(2017,1,1)
-    end_date=(2018,1,1)
+    start_date=(2015,1,1)
+    end_date=(2020,1,1)
 
     # Get Price History
     series=History()
     series.set_date(start_date,end_date)
     data=series.get_data('PORTFOLIO')
 
-    data=dataframe_interval(start_date,end_date,data)
-
-    # data=compute_pca(11,data.T).T
-
 
     #SPLIT
-
-
-
+    train_start=(2015,1,1)
+    train_end=(2016,1,1)
+    test_start=start_date=(2016,1,1)
+    test_end=(2017,1,1)
     # Find Tickers
     selector=Pairs(data)
-    selected_pairs=selector.find_pairs('DIST',verbose=True,plot=False)
+    selected_pairs=selector.find_pairs('DIST',verbose=False,plot=False)
 
     # Test Tickers
     strategy=Trader(data)
     strategy.set_pairs(selected_pairs)
-    strategy.run_simulation('TH',verbose=False)
+    strategy.set_dates(train_start,train_end,test_start,test_end)
+    strategy.run_simulation('TH',verbose=False,plot=False)
 
 
 

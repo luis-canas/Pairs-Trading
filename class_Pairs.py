@@ -31,7 +31,7 @@ from tqdm import tqdm
 from pymoo.core.problem import ElementwiseProblem
 
 
-from utils import results_to_tickers,study_results
+from utils import results_to_tickers,study_results,price_of_entire_component
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
 
@@ -75,8 +75,8 @@ class Objectives(ElementwiseProblem):
         ones = np.ones(len(x) // 2)  # vector of 1's used in the constraints
 
         # creates the artificial time series given by the combination of stocks in component 1, 2
-        c1_series = self.__price_of_entire_component(self.price_series, component_1)
-        c2_series = self.__price_of_entire_component(self.price_series, component_2)
+        c1_series = price_of_entire_component(self.price_series, component_1)
+        c2_series = price_of_entire_component(self.price_series, component_2)
 
         # calculates the spread given by s = c1 - Beta*c2, where Beta is the cointegration factor
         spread = self.__coint_spread(c1_series, c2_series)
@@ -117,14 +117,6 @@ class Objectives(ElementwiseProblem):
         out["F"] = [f for f in aux_obj]
 
 
-    def __price_of_entire_component(self,series, component):
-        if not any(component):
-            return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
-
-
-        combined_series = series.iloc[:, component].sum(axis=1)
-
-        return combined_series
 
     def __zero_crossings(self,x):
         """
@@ -197,7 +189,7 @@ class Pairs:
         # self.__end = data.index[-1]._date_repr
 
 
-    def __nsga2(self,verbose=False,plot=False):
+    def __nsga2(self,verbose,plot):
 
 
         gen = 50
