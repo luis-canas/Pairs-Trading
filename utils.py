@@ -7,6 +7,8 @@ from datetime import datetime
 import statsmodels.api as sm
 from sklearn.decomposition import PCA
 import random
+from os.path import isfile
+import yfinance as yf
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
@@ -122,7 +124,7 @@ def results_to_tickers(res, tickers):
 def dataframe_interval(start_date, end_date,data):
 
 
-    mask = (data.index > start_date) & (data.index <= end_date)
+    mask = (data.index >= start_date) & (data.index <= end_date)
 
     return data.loc[mask]
 
@@ -170,8 +172,12 @@ def compute_pca(n_components, df, svd_solver='auto', random_state=0):
 
 
 
-def compute_zscore(full_spread, test_spread, offset, normalization_period):
-    NB_TRADING_DAYS = normalization_period
+def compute_zscore(full_spread, test_spread):
+
+    ## USO TUDO OU DIMINUI O ZSCORE?
+    # spread_to_consider = full_spread[(day + offset) - NB_TRADING_DAYS : (day + offset)] #one year
+    i=test_spread.index[0]
+    offset = full_spread.index.get_loc(i)
 
     norm_spread = np.zeros(len(test_spread))
 
@@ -181,7 +187,7 @@ def compute_zscore(full_spread, test_spread, offset, normalization_period):
     
 
     for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[(day + offset) - NB_TRADING_DAYS : (day + offset)] #one year
+        spread_to_consider = full_spread[ : (day + offset)] #one year
 
         norm_spread[day] = (daily_value - spread_to_consider.mean()) / np.std(spread_to_consider) 
 
@@ -192,7 +198,6 @@ def compute_zscore(full_spread, test_spread, offset, normalization_period):
 
     return norm_spread, mean, std, t_spread
 
-    return spread
 
 def stock_screener(filename,target,sector,start,end):
 
@@ -224,3 +229,21 @@ def price_of_entire_component(series, component):
     combined_series = series.iloc[:, component].sum(axis=1)
 
     return combined_series
+
+def get_data(index,sector,start,end):
+
+
+    if not isfile(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
+        df = pd.read_csv(f'data/{index}_screener.csv',encoding='latin1')
+
+        mask=df['Sector'].str.contains(sector)
+        mask=mask.where(pd.notnull(mask), False).tolist()
+        tickers=df['Symbol']
+        tickers=tickers[mask].tolist()
+
+        data=yf.download(tickers,start=datetime(*start),end=datetime(*end))['Close']
+        
+        data.to_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
+    else:
+        data = pd.read_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
+    return data

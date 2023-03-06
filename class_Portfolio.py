@@ -12,7 +12,7 @@ from utils import date_string
 import warnings
 warnings.filterwarnings("ignore")
 
-class History:
+class Portfolio:
 
 
     def __init__(self):

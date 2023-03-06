@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from statsmodels.api import OLS
 from statsmodels.tsa.arima_model import ARMA, ARIMA
+from tqdm import tqdm
 
 from utils import *
 
@@ -73,14 +74,14 @@ class Trader:
 
         #concatenation of both arrays in a single decision array
         num_units = num_units_long + num_units_short
-        trade_array = pd.Series(data=num_units.values, index=spread.index)
+        trade_array = pd.Series(data=num_units.values)
 
         return trade_array
 
 
     def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1):
         
-        trade_array[-1] = CLOSE_POSITION  # Close all positions in the last day of the trading period whether they have converged or not
+        trade_array.iloc[-1] = CLOSE_POSITION  # Close all positions in the last day of the trading period whether they have converged or not
 
         # define trading costs
         fixed_costs_per_trade = (commission + market_impact) / 100  # remove percentage
@@ -167,8 +168,21 @@ class Trader:
         tickers=self.__tickers
         all_pairs=self.__all_pairs
 
-        for pair in all_pairs:
+        n_pairs=len(all_pairs)
+        n_non_convergent_pairs = 0
+        profit = 0
+        loss = 0
+        total_trades = 0
 
+        FIXED_VALUE = 1000 / n_pairs
+
+        total_portfolio_value = []
+        total_cash = [] 
+
+
+        for i in tqdm(range(n_pairs)):
+
+            pair=all_pairs[i]
             component1=pair[0]
             component2=pair[1]
 
@@ -184,17 +198,53 @@ class Trader:
             c1_test=dataframe_interval(self.__test_start,self.__test_end,c1)
             c2_test=dataframe_interval(self.__test_start,self.__test_end,c2)
 
+            c1_full=dataframe_interval(self.__train_start,self.__test_end,c1)
+            c2_full=dataframe_interval(self.__train_start,self.__test_end,c2)
+
             beta,_=coint_spread(c1_train,c2_train)
 
-            spread=c1-beta*c2
+            full_spread=c1_full-beta*c2_full
+            spread=c1_test-beta*c2_test
 
-            norm_spread=compute_zscore(spread)
+            
+            norm_spread,_,_,_=compute_zscore(full_spread,spread)
 
             trade_array=self.__threshold(spread=norm_spread)
             
-            n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(spread)
+            n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array)
 
-        return 1
+            pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
+
+            if verbose: print('Pair performance', pair_performance - 100, '%' )
+            if pair_performance > 100:
+                profit += 1
+            else:
+                loss += 1
+
+            try:
+                aux_pt_value += portfolio_value
+                aux_cash += cash
+                total_trades += n_trades
+            except:
+                aux_pt_value = portfolio_value
+                aux_cash = cash
+                total_trades = n_trades
+
+
+            # non convergent pairs
+            if days_open[-2] > 0:
+                n_non_convergent_pairs += 1
+
+
+      
+        total_portfolio_value += list(aux_pt_value)
+        total_cash += list(aux_cash)
+
+        ROI = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100
+
+        print(ROI)
+
+        return ROI
 
    
 
