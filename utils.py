@@ -124,7 +124,7 @@ def results_to_tickers(res, tickers):
 def dataframe_interval(start_date, end_date,data):
 
 
-    mask = (data.index >= start_date) & (data.index <= end_date)
+    mask = (data.index > start_date) & (data.index <= end_date)
 
     return data.loc[mask]
 

@@ -26,7 +26,7 @@ def main():
     #SPLIT
     train_start=(2015,1,1)
     train_end=(2016,1,1)
-    test_start=(2016,1,2)
+    test_start=(2016,1,1)
     test_end=(2017,1,1)
     
     # Find Tickers
