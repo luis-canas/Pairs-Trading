@@ -6,11 +6,11 @@ from utils import *
 
 def main():
 
-    pairs_alg='COINT'
+    pairs_alg='DIST'
     trading_alg='TH'
     index='s&p500'
-    # sector='Financials'
-    sector='Real Estate'
+    sector='Financials'
+    # sector='Real Estate'
 
     start_date=(2015,1,1)
     end_date=(2020,1,1)
@@ -30,14 +30,14 @@ def main():
     for year_index in range(n_simul):
 
         pair_formation.set_date(train_start,train_end)
-        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=False,plot=False)
+        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=True,plot=False)
 
 
         trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start,train_end,test_start,test_end)
         performance=trading_phase.run_simulation(trading_alg,verbose=False,plot=False)
 
-        portfolio.report(selected_pairs,performance,verbose=False)
+        portfolio.report(selected_pairs,performance,verbose=True)
 
         train_start=date_change(train_start,months_inc)
         train_end=date_change(train_start,months_inc)

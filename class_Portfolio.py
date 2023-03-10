@@ -7,6 +7,7 @@ from datetime import datetime
 import yfinance as yf
 from os.path import isfile
 import json
+import pprint
 
 from utils import *
 
@@ -16,6 +17,7 @@ class Portfolio:
 
     def __init__(self,data,start_date,end_date,months_inc,n_simul):
 
+        self.__data=data
         self.__tickers=data.keys()
         self.__start_date=date_string(start_date)
         self.__end_date=date_string(end_date)
@@ -33,10 +35,8 @@ class Portfolio:
         self.__portfolio_info.append(performance)
 
         if verbose:
-            print("\n************************************************\n")
-            print(json.dumps(pairs, indent=2))
-            print(json.dumps(performance, indent=2))
-            print("\n************************************************\n")
+            pprint.pprint([pairs,performance],depth=2,sort_dicts=False)
+
 
    
     

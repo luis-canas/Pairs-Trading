@@ -29,6 +29,7 @@ class Trader:
         self.__testing_end=[]
         self.__data=data
         self.__tickers=data.keys()
+        self.__portfolio_init=PORTFOLIO_INIT
 
     def set_pairs(self,pairs):
         
@@ -170,15 +171,15 @@ class Trader:
         all_pairs=self.__all_pairs
 
         n_pairs=len(all_pairs)
-        n_non_convergent_pairs = 0
-        profit = 0
-        loss = 0
+        self.__n_non_convergent_pairs = 0
+        self.__profit = 0
+        self.__loss = 0
         total_trades = 0
 
-        FIXED_VALUE = PORTFOLIO_INIT / n_pairs
+        FIXED_VALUE = self.__portfolio_init / n_pairs
 
-        total_portfolio_value = []
-        total_cash = [] 
+        self.__total_portfolio_value = []
+        self.__total_cash = [] 
 
 
         for i in tqdm(range(n_pairs)):
@@ -218,9 +219,9 @@ class Trader:
 
             if verbose: print('Pair performance', pair_performance - 100, '%' )
             if pair_performance > 100:
-                profit += 1
+                self.__profit += 1
             else:
-                loss += 1
+                self.__loss += 1
 
             try:
                 aux_pt_value += portfolio_value
@@ -234,29 +235,16 @@ class Trader:
 
             # non convergent pairs
             if days_open[-2] > 0:
-                n_non_convergent_pairs += 1
+                self.__n_non_convergent_pairs += 1
 
 
       
-        total_portfolio_value += list(aux_pt_value)
-        total_cash += list(aux_cash)
+        self.__total_portfolio_value += list(aux_pt_value)
+        self.__total_cash += list(aux_cash)
 
-        ROI = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100
-
-
-        info={"portfolio_init": PORTFOLIO_INIT,
-                "portfolio_value": total_portfolio_value,
-                "simulation_start": self.__test_start,
-                "simulation_end": self.__test_end,
-                "cash": total_cash,
-                "profit_pairs":profit,
-                "loss_pairs":loss,
-                "non_convergent_pairs":n_non_convergent_pairs,
-                "roi": ROI,
-        }
+        self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100
 
 
-        return info
 
    
 
@@ -344,7 +332,20 @@ class Trader:
         function = {'MA':self.__moving_average,
                     'TH':self.__threshold_model}
 
-        return function[model](verbose=verbose,plot=plot)
+        function[model](verbose=verbose,plot=plot)
+
+        info={"portfolio_init": self.__portfolio_init,
+                "portfolio_value": self.__total_portfolio_value,
+                "simulation_start": self.__test_start,
+                "simulation_end": self.__test_end,
+                "cash": self.__total_cash,
+                "profit_pairs":self.__profit,
+                "loss_pairs":self.__loss,
+                "non_convergent_pairs":self.__n_non_convergent_pairs,
+                "roi": self.__roi,
+        }
+        
+        return info
         # if verbose:
         #     print("\n************************************************\n",
         #             "\nModel: ",model)
