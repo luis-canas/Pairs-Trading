@@ -1,18 +1,70 @@
 
 
-# from pandas_datareader import data
-# from pandas_datareader.nasdaq_trader import get_nasdaq_symbols
+
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import yfinance as yf
-import pickle
 from os.path import isfile
+import json
 
-from utils import date_string
-import warnings
-warnings.filterwarnings("ignore")
+from utils import *
+
 
 class Portfolio:
+
+
+    def __init__(self,data,start_date,end_date,months_inc,n_simul):
+
+        self.__tickers=data.keys()
+        self.__start_date=date_string(start_date)
+        self.__end_date=date_string(end_date)
+        self.__months_inc=months_inc
+        self.__n_simul=n_simul
+
+
+        self.__pair_info=[]
+        self.__portfolio_info=[]
+
+    def report_pairs(self,pairs,model,start,end,verbose=False):
+
+        info={"model": model,
+                "formation_start": date_string(start),
+                "formation_end": date_string(end),
+                "n_tickers": len(self.__tickers),
+                "n_pairs": len(pairs),
+                "n_unique_tickers":len(np.unique(pairs)),
+                "pairs":pairs,
+        }
+
+        self.__pair_info.append(info)
+
+        if verbose:
+            print("\n************************************************\n")
+            print(json.dumps(info, indent=2))
+            print("\n************************************************\n")
+            
+    def report_performance(self,pairs,model,start,end,verbose=False):
+
+        info={"model": model,
+                "formation_start": date_string(start),
+                "formation_end": date_string(end),
+                "n_tickers": len(self.__tickers),
+                "n_pairs": len(pairs),
+                "n_unique_tickers":len(np.unique(pairs)),
+                "pairs":pairs,
+        }
+
+        self.__pair_info.append(info)
+
+        if verbose:
+            print("\n************************************************\n")
+            print(json.dumps(info, indent=2,skipkeys="pairs"))
+            print("\n************************************************\n")
+
+   
+    
+class History:
 
 
     def __init__(self):
@@ -72,3 +124,4 @@ class Portfolio:
     def __pickle(self):      
 
         return pd.read_pickle('commodity_ETFs_interpolated_screened.pickle')
+

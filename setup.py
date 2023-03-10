@@ -24,13 +24,14 @@ def main():
     data=get_data(index,sector,start_date,end_date)
     pair_formation=Pairs(data)
     trading_phase=Trader(data)
-
+    portfolio=Portfolio(data,start_date,end_date,months_inc,n_simul)
 
     
     for year_index in range(n_simul):
 
         pair_formation.set_date(train_start,train_end)
         selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=False,plot=False)
+        portfolio.report_pairs(selected_pairs,pairs_alg,train_start,train_end,verbose=False)
 
         trading_phase.set_pairs(selected_pairs)
         trading_phase.set_dates(train_start,train_end,test_start,test_end)

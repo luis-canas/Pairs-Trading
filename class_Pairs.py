@@ -307,15 +307,6 @@ class Pairs:
 
         function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs,'NSGA':self.__nsga2}
         function[model](verbose=verbose,plot=plot)
-        
-        if verbose:   
-            print("\n************************************************\n",
-                    "\nModel: ",model,
-                    "\nTotal number of elements: ", len(self.__tickers),
-                    "\nNumber of pairs: ", len( self.__all_pairs),
-                    "\nNumber of unique elements in pairs: ",len( np.unique(self.__all_pairs)),
-                    "\nPairs: ",self.__all_pairs,
-                    "\n\n************************************************\n")
                     
         return self.__all_pairs
 
