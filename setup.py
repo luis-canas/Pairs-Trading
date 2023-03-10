@@ -31,11 +31,13 @@ def main():
 
         pair_formation.set_date(train_start,train_end)
         selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=False,plot=False)
-        portfolio.report_pairs(selected_pairs,pairs_alg,train_start,train_end,verbose=False)
 
-        trading_phase.set_pairs(selected_pairs)
+
+        trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start,train_end,test_start,test_end)
-        trading_phase.run_simulation(trading_alg,verbose=False,plot=False)
+        performance=trading_phase.run_simulation(trading_alg,verbose=False,plot=False)
+
+        portfolio.report(selected_pairs,performance,verbose=False)
 
         train_start=date_change(train_start,months_inc)
         train_end=date_change(train_start,months_inc)

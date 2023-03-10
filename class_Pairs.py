@@ -307,46 +307,18 @@ class Pairs:
 
         function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs,'NSGA':self.__nsga2}
         function[model](verbose=verbose,plot=plot)
+
+        info={"model": model,
+                "formation_start": self.__start,
+                "formation_end":  self.__end,
+                "n_tickers": len(self.__tickers),
+                "n_pairs": len(self.__all_pairs),
+                "n_unique_tickers":len(np.unique(self.__all_pairs)),
+                "pairs":self.__all_pairs,
+        }
                     
-        return self.__all_pairs
+        return info
 
-
-    # def __cointegrated_pairs(self):
-
-    #     data = self.__data
-    #     tickers = self.__tickers
-    #     n_pairs = len(tickers)
-
-    #     adfuller_threshold = 0.1
-    #     pvalue_threshold = 0.05
-    #     hurst_threshold = 0.5  # mean reversing threshold
-
-    #     pairs = []
-
-    #     for i in range(n_pairs):
-
-    #         signal1 = data[tickers[i]]
-
-    #         if self.__is_stationary(signal1, adfuller_threshold):
-
-    #             for j in range(i+1, n_pairs):
-
-    #                 signal2 = data[tickers[j]]
-
-    #                 if self.__is_stationary(signal2, adfuller_threshold):
-                
-    #                     beta = OLS(signal2, signal1).fit().params[0]
-    #                     spread = signal2-beta*signal1
-
-    #                     if self.__is_stationary(spread, adfuller_threshold):
-
-    #                         hurst, _, _ = hurst_exponent(spread)
-
-                            
-    #                         if hurst<hurst_threshold:
-    #                             pairs.append((tickers[i], tickers[j]))
-
-    #     self.__all_pairs = pairs
 
 
 

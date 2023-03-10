@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from utils import *
 
+PORTFOLIO_INIT=1000
 LONG_SPREAD = 1
 SHORT_SPREAD = -1
 CLOSE_POSITION = 0
@@ -174,7 +175,7 @@ class Trader:
         loss = 0
         total_trades = 0
 
-        FIXED_VALUE = 1000 / n_pairs
+        FIXED_VALUE = PORTFOLIO_INIT / n_pairs
 
         total_portfolio_value = []
         total_cash = [] 
@@ -242,9 +243,20 @@ class Trader:
 
         ROI = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100
 
-        print(ROI)
 
-        return ROI
+        info={"portfolio_init": PORTFOLIO_INIT,
+                "portfolio_value": total_portfolio_value,
+                "simulation_start": self.__test_start,
+                "simulation_end": self.__test_end,
+                "cash": total_cash,
+                "profit_pairs":profit,
+                "loss_pairs":loss,
+                "non_convergent_pairs":n_non_convergent_pairs,
+                "roi": ROI,
+        }
+
+
+        return info
 
    
 
@@ -329,10 +341,10 @@ class Trader:
 
     def run_simulation(self,model,verbose=False,plot=False):
 
-        function = {'MA':self.__moving_average,'TH':self.__threshold_model}
-        summary={'Returns':0}
+        function = {'MA':self.__moving_average,
+                    'TH':self.__threshold_model}
 
-        function[model](verbose=verbose,plot=plot)
+        return function[model](verbose=verbose,plot=plot)
         # if verbose:
         #     print("\n************************************************\n",
         #             "\nModel: ",model)

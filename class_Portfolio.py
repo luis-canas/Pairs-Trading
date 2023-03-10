@@ -26,40 +26,16 @@ class Portfolio:
         self.__pair_info=[]
         self.__portfolio_info=[]
 
-    def report_pairs(self,pairs,model,start,end,verbose=False):
 
-        info={"model": model,
-                "formation_start": date_string(start),
-                "formation_end": date_string(end),
-                "n_tickers": len(self.__tickers),
-                "n_pairs": len(pairs),
-                "n_unique_tickers":len(np.unique(pairs)),
-                "pairs":pairs,
-        }
+    def report(self,pairs,performance,verbose=False):
 
-        self.__pair_info.append(info)
+        self.__pair_info.append(pairs)
+        self.__portfolio_info.append(performance)
 
         if verbose:
             print("\n************************************************\n")
-            print(json.dumps(info, indent=2))
-            print("\n************************************************\n")
-            
-    def report_performance(self,pairs,model,start,end,verbose=False):
-
-        info={"model": model,
-                "formation_start": date_string(start),
-                "formation_end": date_string(end),
-                "n_tickers": len(self.__tickers),
-                "n_pairs": len(pairs),
-                "n_unique_tickers":len(np.unique(pairs)),
-                "pairs":pairs,
-        }
-
-        self.__pair_info.append(info)
-
-        if verbose:
-            print("\n************************************************\n")
-            print(json.dumps(info, indent=2,skipkeys="pairs"))
+            print(json.dumps(pairs, indent=2))
+            print(json.dumps(performance, indent=2))
             print("\n************************************************\n")
 
    
