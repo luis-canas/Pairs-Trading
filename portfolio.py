@@ -6,7 +6,6 @@ import numpy as np
 from datetime import datetime
 import yfinance as yf
 from os.path import isfile
-import json
 import pprint
 
 from utils import *

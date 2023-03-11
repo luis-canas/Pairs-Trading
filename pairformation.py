@@ -44,6 +44,7 @@ COINT_CUTOFF = 0.05  # the adf test has a maximum value so that a time series is
 
 
 class Objectives(ElementwiseProblem):
+    
     def __init__(self, price_series, tickers, objective_functions, min_elements=1, max_elements=1):
 
         self.N_VARIABLES = 2 * len(tickers)  # 1 decision variable per stock, times 2 since a pair has 2 components
@@ -172,7 +173,7 @@ class Objectives(ElementwiseProblem):
 
         return spread.std()
 
-class Pairs:
+class PairFormation:
 
     """
     A class used to represent trading Pairs

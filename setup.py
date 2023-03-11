@@ -1,7 +1,7 @@
 
-from class_Pairs import Pairs
-from class_Trader import Trader
-from class_Portfolio import Portfolio
+from pairformation import PairFormation
+from tradingphase import TradingPhase
+from portfolio import Portfolio
 from utils import *
 
 def main():
@@ -19,12 +19,12 @@ def main():
     test_start=(2016,1,1)
     test_end=(2017,1,1)
     months_inc=12
-    n_simul=1
+    n_simul=3
 
     data=get_data(index,sector,start_date,end_date)
-    pair_formation=Pairs(data)
-    trading_phase=Trader(data)
-    portfolio=Portfolio(data,index,sector,start_date,end_date,months_inc)
+    pair_formation=PairFormation(data)
+    trading_phase=TradingPhase(data)
+    portfolio=Portfolio(data,index,sector,start_date,end_date,months_inc,n_simul)
 
     
     for year_index in range(n_simul):
@@ -39,10 +39,12 @@ def main():
 
         portfolio.report(selected_pairs,performance,verbose=True)
 
+    
         train_start=date_change(train_start,months_inc)
-        train_end=date_change(train_start,months_inc)
-        test_start=date_change(train_start,months_inc)
-        test_end=date_change(train_start,months_inc)
+        train_end=date_change(train_end,months_inc)
+        test_start=date_change(test_start,months_inc)
+        test_end=date_change(test_end,months_inc)
+
 
 
 
