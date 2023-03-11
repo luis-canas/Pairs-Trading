@@ -24,7 +24,7 @@ def main():
     data=get_data(index,sector,start_date,end_date)
     pair_formation=Pairs(data)
     trading_phase=Trader(data)
-    portfolio=Portfolio(data,start_date,end_date,months_inc,n_simul)
+    portfolio=Portfolio(data,index,sector,start_date,end_date,months_inc)
 
     
     for year_index in range(n_simul):

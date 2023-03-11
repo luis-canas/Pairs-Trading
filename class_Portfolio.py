@@ -15,9 +15,11 @@ from utils import *
 class Portfolio:
 
 
-    def __init__(self,data,start_date,end_date,months_inc,n_simul):
+    def __init__(self,data,index,sector,start_date,end_date,months_inc,n_simul):
 
         self.__data=data
+        self.__index=index
+        self.__sector=sector
         self.__tickers=data.keys()
         self.__start_date=date_string(start_date)
         self.__end_date=date_string(end_date)
