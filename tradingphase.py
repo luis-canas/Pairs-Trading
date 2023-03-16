@@ -23,7 +23,6 @@ class TradingPhase:
         self.__all_pairs=[]
         self.__data=data
         self.__tickers=data.keys()
-        self.__portfolio_init=PORTFOLIO_INIT
 
     def set_pairs(self,pairs):
         
@@ -161,6 +160,7 @@ class TradingPhase:
 
 
         data=self.__data
+
         tickers=self.__tickers
         all_pairs=self.__all_pairs
 
@@ -170,21 +170,24 @@ class TradingPhase:
         self.__loss = 0
         total_trades = 0
 
-        FIXED_VALUE = self.__portfolio_init / n_pairs
+        try:
+            FIXED_VALUE = self.__total_portfolio_value[-1] / n_pairs
+        except:
+            FIXED_VALUE = PORTFOLIO_INIT  / n_pairs
+
 
         self.__total_portfolio_value = []
         self.__total_cash = [] 
-
 
         for i in tqdm(range(n_pairs)):
 
             pair=all_pairs[i]
             component1=pair[0]
             component2=pair[1]
-
+   
             component1 = [(ticker in component1) for ticker in tickers]
             component2 = [(ticker in component2) for ticker in tickers]
-
+            
             c1 = price_of_entire_component(data, component1)
             c2 = price_of_entire_component(data, component2)
 
@@ -202,12 +205,11 @@ class TradingPhase:
             full_spread=c1_full-beta*c2_full
             spread=c1_test-beta*c2_test
 
-            
             norm_spread,_,_,_=compute_zscore(full_spread,spread)
 
             trade_array=self.__threshold(spread=norm_spread)
             
-            n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array)
+            n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array,FIXED_VALUE=FIXED_VALUE)
 
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
 
@@ -232,11 +234,11 @@ class TradingPhase:
                 self.__n_non_convergent_pairs += 1
 
 
-      
         self.__total_portfolio_value += list(aux_pt_value)
+
         self.__total_cash += list(aux_cash)
 
-        self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100
+        self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
 
 
     def run_simulation(self,model,verbose=False,plot=False):
@@ -245,8 +247,10 @@ class TradingPhase:
 
         function[model](verbose=verbose,plot=plot)
 
-        info={"portfolio_init": self.__portfolio_init,
-                "portfolio_value": self.__total_portfolio_value,
+        info={
+                "portfolio_start": self.__total_portfolio_value[0],
+                "portfolio_end": self.__total_portfolio_value[-1],
+                "portfolio_values": self.__total_portfolio_value,
                 "simulation_start": self.__test_start,
                 "simulation_end": self.__test_end,
                 "cash": self.__total_cash,
@@ -256,6 +260,8 @@ class TradingPhase:
                 "roi": self.__roi,
         }
         
+        self.__portfolio_init=self.__total_portfolio_value[-1]
+
         return info
       
 #antonio canelas sac ga tecnica de reconhecimento de padroes

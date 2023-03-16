@@ -38,6 +38,11 @@ class Portfolio:
         if verbose:
             pprint.pprint([pairs,performance],depth=2,sort_dicts=False)
 
+    def evaluate(self, verbose=False):
+
+        pass
+
+
 
    
     

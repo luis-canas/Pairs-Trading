@@ -27,11 +27,10 @@ def main():
     portfolio=Portfolio(data,index,sector,start_date,end_date,months_inc,n_simul)
 
     
-    for year_index in range(n_simul):
+    for _ in range(n_simul):
 
         pair_formation.set_date(train_start,train_end)
         selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=True,plot=False)
-
 
         trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start,train_end,test_start,test_end)
@@ -39,12 +38,12 @@ def main():
 
         portfolio.report(selected_pairs,performance,verbose=True)
 
-    
         train_start=date_change(train_start,months_inc)
         train_end=date_change(train_end,months_inc)
         test_start=date_change(test_start,months_inc)
         test_end=date_change(test_end,months_inc)
 
+    portfolio.evaluate()
 
 
 

@@ -206,7 +206,7 @@ class PairFormation:
 
         ref_dirs = get_reference_directions("energy", len(objective_functions), 50, seed=1)
 
-        algorithm = NSGA2(pop_size=50,
+        algorithm = NSGA2(pop_size=100,
                         sampling=BinaryRandomSampling(),
                         crossover=TwoPointCrossover(),
                         mutation=BitflipMutation(),
@@ -248,7 +248,9 @@ class PairFormation:
                 dic[tickers[i], tickers[j]]=ssd
 
 
-        self.__all_pairs = list(dict(sorted(dic.items(), key = itemgetter(1))[:pair_number]).keys())
+        top_pairs = list(dict(sorted(dic.items(), key = itemgetter(1))[:pair_number]).keys())
+
+        self.__all_pairs = [[[x], [y]] for x, y in top_pairs]
 
     def __is_stationary(self,signal, threshold):
 
@@ -272,7 +274,7 @@ class PairFormation:
                 signal2 = data[tickers[j]]
                 
                 if self.__Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold,plot):
-                    pairs.append((tickers[i], tickers[j]))
+                    pairs.append([[tickers[i]], [tickers[j]]])
 
         self.__all_pairs = pairs
 

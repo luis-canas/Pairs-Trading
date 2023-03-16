@@ -102,22 +102,23 @@ def study_results(res, objectives, n_gen):
         plt.show()
 
 
-
-
 def results_to_tickers(res, tickers):
 
-    pairs = []
+    selected_stocks = [[] for _ in range(len(res.X) * 2)]  # two components per pair
+
+    counter = 0
 
     for result in res.X:
         for i in range(len(result)):
             if result[i]:
                 if i < len(result) // 2:
-                    signal1=tickers[i]
+                    selected_stocks[counter].append(tickers[i])
                 else:
-                    signal2=tickers[i - (len(result) // 2)]
-                    break
+                    selected_stocks[counter + 1].append(tickers[i - (len(result) // 2)])
 
-        pairs.append((signal1, signal2))
+        counter += 2
+
+    pairs = [[selected_stocks[i], selected_stocks[i + 1]] for i in range(0, len(selected_stocks), 2)]
 
     return pairs
 
@@ -158,15 +159,7 @@ def coint_spread(c1,c2):
 
 
 def compute_pca(n_components, df, svd_solver='auto', random_state=0):
-    """
-    This function applies Principal Component Analysis to the df given as
-    parameter
 
-    :param n_components: number of principal components
-    :param df: dataframe containing time series for analysis
-    :param svd_solver: solver for PCA: see PCA documentation
-    :return: reduced normalized and transposed df
-    """
 
     if not isinstance(n_components, str):
         if n_components > df.shape[1]:
@@ -185,8 +178,6 @@ def compute_pca(n_components, df, svd_solver='auto', random_state=0):
 
 def compute_zscore(full_spread, test_spread):
 
-    ## USO TUDO OU DIMINUI O ZSCORE?
-    # spread_to_consider = full_spread[(day + offset) - NB_TRADING_DAYS : (day + offset)] #one year
     i=test_spread.index[0]
     offset = full_spread.index.get_loc(i)
 
@@ -198,7 +189,7 @@ def compute_zscore(full_spread, test_spread):
     
 
     for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[ : (day + offset)] #one year
+        spread_to_consider = full_spread[ day: (day + offset)] #one year
 
         norm_spread[day] = (daily_value - spread_to_consider.mean()) / np.std(spread_to_consider) 
 
@@ -233,11 +224,11 @@ def stock_screener(filename,target,sector,start,end):
     return tickers
 
 def price_of_entire_component(series, component):
-    if not any(component):
-        return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
+    # if not any(component):
+    #     return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
 
-
-    combined_series = series.iloc[:, component].sum(axis=1)
+   
+    combined_series = series.iloc[:,component].sum(axis=1)
 
     return combined_series
 
@@ -257,4 +248,13 @@ def get_data(index,sector,start,end):
         data.to_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
     else:
         data = pd.read_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
+
     return data
+
+
+    # start = datetime(*start)
+    # end = datetime(*end)
+
+    # tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
+
+    # return yf.download(tickers, start, end)['Close']
