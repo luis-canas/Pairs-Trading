@@ -14,16 +14,19 @@ from utils import *
 class Portfolio:
 
 
-    def __init__(self,data,index,sector,start_date,end_date,months_inc,n_simul):
+    def __init__(self,data,index,sector,start_date,end_date,months_trading,months_forming,pairs_alg,trading_alg):
 
         self.data=data
         self.index=index
         self.sector=sector
         self.tickers=data.keys()
-        self.tart_date=date_string(start_date)
+        self.start_date=date_string(start_date)
         self.end_date=date_string(end_date)
-        self.months_inc=months_inc
-        self.n_simul=n_simul
+        self.months_trading=months_trading
+        self.months_forming=months_forming
+        self.pairs_alg=pairs_alg
+        self.trading_alg=trading_alg
+
 
 
         self.pair_info=[]
@@ -41,7 +44,7 @@ class Portfolio:
     def evaluate(self, verbose=False):
         
         if verbose:
-            for simul in range(self.n_simul):
+            for simul in range(len(self.portfolio_info)):
                 pprint.pprint([self.pair_info[simul],self.portfolio_info[simul]],depth=2,sort_dicts=False)
 
 

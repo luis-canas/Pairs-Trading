@@ -12,8 +12,19 @@ import yfinance as yf
 import pickle
 
 def save_pickle(item):
-    with open('output/company_data.pkl', 'wb') as output:
+
+    name=item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_'+str(item.months_forming)+'_'+str(item.months_trading)+'_'+item.pairs_alg+'_'+item.trading_alg
+
+    with open('output/'+name+'.pkl', 'wb') as output:
         pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
+
+def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
+
+    name=index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
+
+    with open('output/'+name+'.pkl', 'rb') as input:
+        portfolio = pickle.load(input)
+        portfolio.evaluate(verbose=True)
 
 
 

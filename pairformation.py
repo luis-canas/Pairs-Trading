@@ -201,12 +201,12 @@ class PairFormation:
     def __nsga2(self,verbose,plot):
 
 
-        gen = 50
+        gen = 80
         objective_functions = ['ADF', 'spread_volatility', 'NZC', 'half_life']
 
         ref_dirs = get_reference_directions("energy", len(objective_functions), 50, seed=1)
 
-        algorithm = NSGA2(pop_size=100,
+        algorithm = NSGA2(pop_size=50,
                         sampling=BinaryRandomSampling(),
                         crossover=TwoPointCrossover(),
                         mutation=BitflipMutation(),

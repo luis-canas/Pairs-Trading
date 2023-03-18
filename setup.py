@@ -16,7 +16,7 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
     data=get_data(index,sector,start_date,end_date)
     pair_formation=PairFormation(data)
     trading_phase=TradingPhase(data)
-    portfolio=Portfolio(data,index,sector,start_date,end_date,months_trading,years_simulated)
+    portfolio=Portfolio(data,index,sector,start_date,end_date,months_trading,months_forming,pairs_alg,trading_alg)
 
     
     for _ in range(years_simulated):
@@ -44,20 +44,32 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
 
 if __name__ == "__main__":
 
-    pairs_alg='DIST'
+    # pairs_alg='DIST'
+    # trading_alg='TH'
+    # index='s&p500'
+    # sector='Financials'
+    # # sector='Real Estate'
+
+
+    # #simulation initial parameters
+    # start_date=(2015,1,1)
+    # end_date=(2020,1,1)
+    # months_trading=12
+    # months_forming=12
+
+    pairs_alg='NSGA'
     trading_alg='TH'
     index='s&p500'
-    sector='Financials'
-    # sector='Real Estate'
+    # sector='Financials'
+    sector='Real Estate'
 
 
     #simulation initial parameters
     start_date=(2015,1,1)
-    end_date=(2020,1,1)
+    end_date=(2022,1,1)
     months_trading=12
-    months_forming=12
+    months_forming=12*3
 
-    # with open('output/company_data.pkl', 'rb') as input:
-    #     portfolio = pickle.load(input)
-    #     portfolio.evaluate(verbose=True)
-    main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
+    open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
+
+    # main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
