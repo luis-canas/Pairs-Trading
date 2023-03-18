@@ -4,30 +4,22 @@ from tradingphase import TradingPhase
 from portfolio import Portfolio
 from utils import *
 
-def main():
+def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
-    pairs_alg='DIST'
-    trading_alg='TH'
-    index='s&p500'
-    sector='Financials'
-    # sector='Real Estate'
-
-    start_date=(2015,1,1)
-    end_date=(2020,1,1)
-    train_start=(2015,1,1)
-    train_end=(2016,1,1)
-    test_start=(2016,1,1)
-    test_end=(2017,1,1)
-    months_inc=12
-    n_simul=3
+    #define simulation parameters
+    train_start=start_date
+    train_end=date_change(train_start,months_forming)
+    test_start=train_end
+    test_end=date_change(test_start,months_trading)
+    years_simulated=(end_date[0] - test_end[0])+1
 
     data=get_data(index,sector,start_date,end_date)
     pair_formation=PairFormation(data)
     trading_phase=TradingPhase(data)
-    portfolio=Portfolio(data,index,sector,start_date,end_date,months_inc,n_simul)
+    portfolio=Portfolio(data,index,sector,start_date,end_date,months_trading,years_simulated)
 
     
-    for _ in range(n_simul):
+    for _ in range(years_simulated):
 
         pair_formation.set_date(train_start,train_end)
         selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=True,plot=False)
@@ -38,10 +30,10 @@ def main():
 
         portfolio.report(selected_pairs,performance,verbose=True)
 
-        train_start=date_change(train_start,months_inc)
-        train_end=date_change(train_end,months_inc)
-        test_start=date_change(test_start,months_inc)
-        test_end=date_change(test_end,months_inc)
+        train_start=date_change(train_start,months_trading)
+        train_end=date_change(train_end,months_trading)
+        test_start=date_change(test_start,months_trading)
+        test_end=date_change(test_end,months_trading)
 
     portfolio.evaluate()
 
@@ -50,4 +42,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    pairs_alg='DIST'
+    trading_alg='TH'
+    index='s&p500'
+    sector='Financials'
+    # sector='Real Estate'
+
+
+    #simulation initial parameters
+    start_date=(2015,1,1)
+    end_date=(2020,1,1)
+    months_trading=12
+    months_forming=12
+
+    main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)

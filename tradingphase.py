@@ -2,19 +2,18 @@
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from statsmodels.api import OLS
-from statsmodels.tsa.arima_model import ARMA, ARIMA
+
 from tqdm import tqdm
 
 from utils import *
 
-PORTFOLIO_INIT=1000
+PORTFOLIO_INIT = 1000
+NB_TRADING_DAYS = 252
+CLOSE_INACTIVITY = 252
+
 LONG_SPREAD = 1
 SHORT_SPREAD = -1
 CLOSE_POSITION = 0
-
-NB_TRADING_DAYS = 252
 
 class TradingPhase:
 
@@ -35,7 +34,25 @@ class TradingPhase:
         self.__test_start=date_string(test_start)
         self.__test_end=date_string(test_end)
 
-    def __threshold(self,spread,stop_loss=4,entry=2,close=0):
+    def __force_close(self,decision_array):
+        count = 0
+        for day in range(1,len(decision_array)):
+            if count >= CLOSE_INACTIVITY:
+                day_aux = day
+                while decision_array[day_aux] == decision_array[day - 1] :
+                    decision_array[day_aux] = CLOSE_POSITION
+                    day_aux += 1
+                    if day_aux == len(decision_array):
+                        break
+            if decision_array[day] == decision_array[day-1]:
+                if decision_array[day] == LONG_SPREAD or decision_array[day] == SHORT_SPREAD:
+                    count +=1
+            else:
+                count = 0
+        
+        return decision_array
+
+    def __threshold(self,spread,entry=2,close=0):
 
         longs_entry = spread < -entry
         longs_exit = spread > -close
@@ -72,7 +89,6 @@ class TradingPhase:
         trade_array = pd.Series(data=num_units.values)
 
         return trade_array
-
 
     def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1):
         
@@ -208,7 +224,8 @@ class TradingPhase:
             norm_spread,_,_,_=compute_zscore(full_spread,spread)
 
             trade_array=self.__threshold(spread=norm_spread)
-            
+            trade_array=self.__force_close(trade_array)
+
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array,FIXED_VALUE=FIXED_VALUE)
 
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
@@ -260,8 +277,6 @@ class TradingPhase:
                 "roi": self.__roi,
         }
         
-        self.__portfolio_init=self.__total_portfolio_value[-1]
-
         return info
       
 #antonio canelas sac ga tecnica de reconhecimento de padroes
