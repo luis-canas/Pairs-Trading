@@ -70,6 +70,6 @@ if __name__ == "__main__":
     months_trading=12
     months_forming=12*3
 
-    open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
+    # open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
 
-    # main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
+    main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
