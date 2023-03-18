@@ -37,6 +37,7 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
 
     portfolio.evaluate()
 
+    save_pickle(portfolio)
 
 
 
@@ -56,4 +57,7 @@ if __name__ == "__main__":
     months_trading=12
     months_forming=12
 
+    # with open('output/company_data.pkl', 'rb') as input:
+    #     portfolio = pickle.load(input)
+    #     portfolio.evaluate(verbose=True)
     main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)

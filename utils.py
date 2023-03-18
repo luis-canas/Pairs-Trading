@@ -9,6 +9,14 @@ from sklearn.decomposition import PCA
 import random
 from os.path import isfile
 import yfinance as yf
+import pickle
+
+def save_pickle(item):
+    with open('output/company_data.pkl', 'wb') as output:
+        pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
+
+
+
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")

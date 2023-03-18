@@ -16,31 +16,34 @@ class Portfolio:
 
     def __init__(self,data,index,sector,start_date,end_date,months_inc,n_simul):
 
-        self.__data=data
-        self.__index=index
-        self.__sector=sector
-        self.__tickers=data.keys()
-        self.__start_date=date_string(start_date)
-        self.__end_date=date_string(end_date)
-        self.__months_inc=months_inc
-        self.__n_simul=n_simul
+        self.data=data
+        self.index=index
+        self.sector=sector
+        self.tickers=data.keys()
+        self.tart_date=date_string(start_date)
+        self.end_date=date_string(end_date)
+        self.months_inc=months_inc
+        self.n_simul=n_simul
 
 
-        self.__pair_info=[]
-        self.__portfolio_info=[]
+        self.pair_info=[]
+        self.portfolio_info=[]
 
 
     def report(self,pairs,performance,verbose=False):
 
-        self.__pair_info.append(pairs)
-        self.__portfolio_info.append(performance)
+        self.pair_info.append(pairs)
+        self.portfolio_info.append(performance)
 
         if verbose:
             pprint.pprint([pairs,performance],depth=2,sort_dicts=False)
 
     def evaluate(self, verbose=False):
+        
+        if verbose:
+            for simul in range(self.n_simul):
+                pprint.pprint([self.pair_info[simul],self.portfolio_info[simul]],depth=2,sort_dicts=False)
 
-        pass
 
 
 
