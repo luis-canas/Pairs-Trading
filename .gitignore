@@ -1,9 +1,6 @@
 
 __pycache__/
 
-/data
-/output
-
 *.csv
 *.xlsx
-*.pkl
+
