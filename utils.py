@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from datetime import datetime
-
+import argparse
 import statsmodels.api as sm
 import random
 from os.path import isfile
@@ -233,3 +233,10 @@ def get_data(index,sector,start,end):
     # tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
 
     # return yf.download(tickers, start, end)['Close']
+
+def tuple_int(string):
+    try:
+        x, y, z = map(int, string.split(","))
+        return (x,y,z)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Invalid input format. Please provide comma separated integers.")
