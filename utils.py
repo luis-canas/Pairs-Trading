@@ -1,11 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import csv
 from datetime import datetime
 
 import statsmodels.api as sm
-from sklearn.decomposition import PCA
 import random
 from os.path import isfile
 import yfinance as yf
@@ -15,19 +13,17 @@ def save_pickle(item):
 
     name=item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_'+str(item.months_forming)+'_'+str(item.months_trading)+'_'+item.pairs_alg+'_'+item.trading_alg
 
-    with open('output/'+name+'.pkl', 'wb') as output:
+    with open('pickle/'+name+'.pkl', 'wb') as output:
         pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
 
 def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
     name=index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
 
-    with open('output/'+name+'.pkl', 'rb') as input:
+    with open('pickle/'+name+'.pkl', 'rb') as input:
         portfolio = pickle.load(input)
-        portfolio.evaluate(verbose=True)
 
-
-
+    return portfolio
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
@@ -176,25 +172,6 @@ def coint_spread(c1,c2):
 
     return b, coint_spread
 
-
-def compute_pca(n_components, df, svd_solver='auto', random_state=0):
-
-
-    if not isinstance(n_components, str):
-        if n_components > df.shape[1]:
-            print("ERROR: number of components larger than samples...")
-            exit()
-
-    pca = PCA(n_components=n_components, svd_solver=svd_solver, random_state=random_state)
-
-    df2 = pd.DataFrame(pca.fit_transform(df), index=df.index)
-    
-
-    return df2
-
-
-
-
 def compute_zscore(full_spread, test_spread):
 
     i=test_spread.index[0]
@@ -220,31 +197,10 @@ def compute_zscore(full_spread, test_spread):
     return norm_spread, mean, std, t_spread
 
 
-def stock_screener(filename,target,sector,start,end):
-
-    file=filename+target+'_screener.csv'
-    df=pd.read_csv(file,encoding='latin1')
-
-
-    mask=df['Sector'].str.contains(sector)
-    mask=mask.where(pd.notnull(mask), False).tolist()
-    tickers=df['Symbol']
-    tickers=tickers[mask].tolist()
-
-    file = open(filename+target+'_'+sector+'.csv', 'w+')
-    file = csv.writer(file)
-    tickers.insert(0,'')
-    file.writerow(tickers)
-
-    end=(2023-end)*365
-    start=(2023-start)*365
-    file.writerow([f'=STOCKHISTORY(B1,NOW()-{start},NOW()-{end},,0)','',f'=STOCKHISTORY(C1,NOW()-{start},NOW()-{end},,0,1)'])
-
-    return tickers
-
 def price_of_entire_component(series, component):
-    # if not any(component):
-    #     return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
+
+    if not any(component):
+        return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
 
    
     combined_series = series.iloc[:,component].sum(axis=1)

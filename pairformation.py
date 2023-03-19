@@ -10,11 +10,6 @@ from statsmodels.tsa.stattools import coint, adfuller
 from hurst import compute_Hc as hurst_exponent
 from scipy.stats import zscore
 
-from sklearn.cluster import OPTICS
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
-
-
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.bitflip import BitflipMutation
@@ -25,8 +20,6 @@ from pymoo.util.ref_dirs import get_reference_directions
 
 
 import statsmodels.api as sm
-import random
-import sys
 from tqdm import tqdm
 from pymoo.core.problem import ElementwiseProblem
 

@@ -1,4 +1,5 @@
 
+import argparse
 from pairformation import PairFormation
 from tradingphase import TradingPhase
 from portfolio import Portfolio
@@ -6,7 +7,6 @@ from utils import *
 
 def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
-    #define simulation parameters
     train_start=start_date
     train_end=date_change(train_start,months_forming)
     test_start=train_end
@@ -44,32 +44,17 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
 
 if __name__ == "__main__":
 
-    # pairs_alg='DIST'
-    # trading_alg='TH'
-    # index='s&p500'
-    # sector='Financials'
-    # # sector='Real Estate'
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    
+    parser.add_argument('--index',type=str,default='s&p500')
+    parser.add_argument('--sector',type=str,default='Real Estate')
+    parser.add_argument('--start_date',type=tuple(int,int,int),default=(2015,1,1))
+    parser.add_argument('--end_date',type=tuple(int,int,int),default=(2022,1,1))
+    parser.add_argument('--months_trading',type=int,default=12)
+    parser.add_argument('--months_forming',type=int,default=36)
+    parser.add_argument('--pairs_alg',type=str,default='DIST')
+    parser.add_argument('--trading_alg',type=str,default='TH')
 
+    args=parser.parse_args()
 
-    # #simulation initial parameters
-    # start_date=(2015,1,1)
-    # end_date=(2020,1,1)
-    # months_trading=12
-    # months_forming=12
-
-    pairs_alg='NSGA'
-    trading_alg='TH'
-    index='s&p500'
-    # sector='Financials'
-    sector='Real Estate'
-
-
-    #simulation initial parameters
-    start_date=(2015,1,1)
-    end_date=(2022,1,1)
-    months_trading=12
-    months_forming=12*3
-
-    # open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
-
-    main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming)
+    main(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)

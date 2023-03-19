@@ -279,4 +279,3 @@ class TradingPhase:
         
         return info
       
-#antonio canelas sac ga tecnica de reconhecimento de padroes
