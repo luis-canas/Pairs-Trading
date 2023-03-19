@@ -58,6 +58,6 @@ if __name__ == "__main__":
     args=parser.parse_args()
 
     args.start_date=ast.literal_eval(args.start_date)
-    args.end_date=ast.literal_eval(args.start_date)
+    args.end_date=ast.literal_eval(args.end_date)
 
     main(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)
