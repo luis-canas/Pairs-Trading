@@ -48,8 +48,8 @@ if __name__ == "__main__":
     
     parser.add_argument('--index',type=str,default='s&p500')
     parser.add_argument('--sector',type=str,default='Real Estate')
-    parser.add_argument('--start_date',type=tuple,default=(2015,1,1))
-    parser.add_argument('--end_date',type=tuple,default=(2022,1,1))
+    parser.add_argument('--start_date',type=int,default=(2015,1,1))
+    parser.add_argument('--end_date',type=int,default=(2022,1,1))
     parser.add_argument('--months_trading',type=int,default=12)
     parser.add_argument('--months_forming',type=int,default=36)
     parser.add_argument('--pairs_alg',type=str,default='DIST')
