@@ -1,5 +1,5 @@
 
-import argparse
+import argparse,ast
 from pairformation import PairFormation
 from tradingphase import TradingPhase
 from portfolio import Portfolio
@@ -48,13 +48,16 @@ if __name__ == "__main__":
     
     parser.add_argument('--index',type=str,default='s&p500')
     parser.add_argument('--sector',type=str,default='Real Estate')
-    parser.add_argument('--start_date',type=int(tuple),default=(2015,1,1))
-    parser.add_argument('--end_date',type=int(tuple),default=(2022,1,1))
+    parser.add_argument('--start_date',type=str,default='(2015,1,1)')
+    parser.add_argument('--end_date',type=str,default='(2022,1,1)')
     parser.add_argument('--months_trading',type=int,default=12)
     parser.add_argument('--months_forming',type=int,default=36)
     parser.add_argument('--pairs_alg',type=str,default='DIST')
     parser.add_argument('--trading_alg',type=str,default='TH')
 
     args=parser.parse_args()
+
+    args.start_date=ast.literal_eval(args.start_date)
+    args.end_date=ast.literal_eval(args.start_date)
 
     main(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)
