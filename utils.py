@@ -9,18 +9,21 @@ from os.path import isfile
 import yfinance as yf
 import pickle
 
+file_input='data/'
+file_output='pickle/'
+
 def save_pickle(item):
 
     name=item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_'+str(item.months_forming)+'_'+str(item.months_trading)+'_'+item.pairs_alg+'_'+item.trading_alg
 
-    with open('pickle/'+name+'.pkl', 'wb') as output:
+    with open(file_output+name+'.pkl', 'wb') as output:
         pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
 
 def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
     name=index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
 
-    with open('pickle/'+name+'.pkl', 'rb') as input:
+    with open(file_output+name+'.pkl', 'rb') as input:
         portfolio = pickle.load(input)
 
     return portfolio
@@ -210,8 +213,8 @@ def price_of_entire_component(series, component):
 def get_data(index,sector,start,end):
 
 
-    if not isfile(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
-        df = pd.read_csv(f'data/{index}_screener.csv',encoding='latin1')
+    if not isfile(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
+        df = pd.read_csv(file_input+f'{index}_screener.csv',encoding='latin1')
 
         mask=df['Sector'].str.contains(sector)
         mask=mask.where(pd.notnull(mask), False).tolist()
@@ -220,9 +223,9 @@ def get_data(index,sector,start,end):
 
         data=yf.download(tickers,start=datetime(*start),end=datetime(*end))['Close']
         
-        data.to_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
+        data.to_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
     else:
-        data = pd.read_csv(f'data/{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
+        data = pd.read_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
 
     return data
 

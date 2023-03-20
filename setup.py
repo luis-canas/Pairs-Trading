@@ -1,8 +1,7 @@
-import argparse,ast
 
-from pairformation import PairFormation
-from tradingphase import TradingPhase
-from portfolio import Portfolio
+from Classes.pair_formation import PairFormation
+from Classes.trading_phase import TradingPhase
+from Classes.portfolio import Portfolio
 from utils import *
 
 def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
@@ -38,8 +37,6 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
     portfolio.evaluate()
 
     save_pickle(portfolio)
-
-
 
 
 if __name__ == "__main__":
