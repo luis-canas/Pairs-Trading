@@ -35,9 +35,17 @@ class Portfolio:
 
     def evaluate(self, verbose=False):
         
-        if verbose:
-            for simul in range(len(self.portfolio_info)):
-                pprint.pprint([self.pair_info[simul],self.portfolio_info[simul]],depth=2,sort_dicts=False)
+       pass
+
+    def print_pairs(self):
+        pass
+    def plot_pairs(self, pair,simul):
+        pass
+
+    def print(self):
+
+        for simul in range(len(self.portfolio_info)):
+            pprint.pprint([self.pair_info[simul],self.portfolio_info[simul]],depth=2,sort_dicts=False)
 
 
 

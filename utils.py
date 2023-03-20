@@ -25,8 +25,9 @@ def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_tr
 
     with open(file_output+name+'.pkl', 'rb') as input:
         portfolio = pickle.load(input)
-
-    return portfolio
+        return portfolio
+    
+    return
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
