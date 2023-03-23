@@ -18,9 +18,6 @@ class Portfolio:
         self.months_forming=months_forming
         self.pairs_alg=pairs_alg
         self.trading_alg=trading_alg
-
-
-
         self.pair_info=[]
         self.portfolio_info=[]
 
@@ -37,9 +34,20 @@ class Portfolio:
         
        pass
 
-    def print_pairs(self):
-        pass
-    def plot_pairs(self, pair,simul):
+    def print_pairs(self,year=-1):
+
+        if year == -1:
+            for simul in range(len(self.pair_info)):
+                print('formation_start: ',self.pair_info[simul]['formation_start'])
+                print(self.pair_info[simul]['pairs'])
+                print('\n')
+        elif year<len(self.pair_info):
+            print('formation_start: ',self.pair_info[year]['formation_start'])
+            print(self.pair_info[year]['pairs'])
+        else:
+            print('Invalid year')
+
+    def plot_pairs(self, pair,year):
         pass
 
     def print(self):
