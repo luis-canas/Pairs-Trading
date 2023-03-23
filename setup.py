@@ -54,7 +54,4 @@ if __name__ == "__main__":
 
     args=parser.parse_args()
 
-    # main(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)
-
-    portfolio=open_pickle(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)
-    portfolio.print_pairs(year=3)
+    main(args.pairs_alg,args.trading_alg,args.index,args.sector,args.start_date,args.end_date,args.months_trading,args.months_forming)
