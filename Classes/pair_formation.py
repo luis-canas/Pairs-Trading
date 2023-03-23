@@ -187,7 +187,7 @@ class PairFormation:
 
         self.__start = date_string(start)
         self.__end = date_string(end)
-        self.__data = dataframe_interval(self.__start, self.__end,self.__entire_data)
+        self.__data=dataframe_interval(self.__start, self.__end,self.__entire_data).dropna(axis=1)
         self.__tickers = self.__data.keys()
 
 

@@ -222,7 +222,7 @@ def get_data(index,sector,start,end):
         tickers=tickers[mask].tolist()
 
         data=yf.download(tickers,start=datetime(*start),end=datetime(*end))['Close']
-        
+
         data.to_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
     else:
         data = pd.read_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
