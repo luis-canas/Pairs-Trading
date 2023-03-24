@@ -1,6 +1,6 @@
 
 __pycache__/
-
+paa.py
 *.csv
 *.xlsx
 !data/nasdaq_screener.csv
