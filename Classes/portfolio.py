@@ -1,6 +1,6 @@
 
 import pprint
-from utils import *
+from utils.utils import date_string
 
 
 class Portfolio:

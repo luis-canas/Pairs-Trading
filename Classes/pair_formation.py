@@ -24,7 +24,7 @@ from tqdm import tqdm
 from pymoo.core.problem import ElementwiseProblem
 
 
-from utils import *
+from utils.utils import price_of_entire_component,date_string,dataframe_interval,study_results,results_to_tickers
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
 
@@ -177,8 +177,8 @@ class PairFormation:
 
         
         self.__all_pairs = []
-        self.__entire_data = data
-        self.__data = data
+        self.__entire_data = data.dropna(axis=1)
+        self.__data = self.__entire_data
         self.__tickers = data.keys()
         self.__start = data.index[0]
         self.__end = data.index[-1]
@@ -187,7 +187,7 @@ class PairFormation:
 
         self.__start = date_string(start)
         self.__end = date_string(end)
-        self.__data=dataframe_interval(self.__start, self.__end,self.__entire_data).dropna(axis=1)
+        self.__data=dataframe_interval(self.__start, self.__end,self.__entire_data)
         self.__tickers = self.__data.keys()
 
 

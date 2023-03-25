@@ -1,11 +1,11 @@
 
-
+import math
 import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
 
-from utils import *
+from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
 
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
@@ -258,9 +258,9 @@ class TradingPhase:
         self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
 
 
-    def __sax(self,spread):
+    def __sax(self,spread, N,M, alphabet_size):
         
-        pass
+            pass
     def __sax_model(self,verbose,plot):
 
         data=self.__data

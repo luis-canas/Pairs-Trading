@@ -1,8 +1,8 @@
 
-from Classes.pair_formation import PairFormation
-from Classes.trading_phase import TradingPhase
-from Classes.portfolio import Portfolio
-from utils import *
+from classes.pair_formation import PairFormation
+from classes.trading_phase import TradingPhase
+from classes.portfolio import Portfolio
+from utils.utils import date_change,get_data,save_pickle,tuple_int,argparse
 
 def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
