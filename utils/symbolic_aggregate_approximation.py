@@ -27,6 +27,9 @@ def timeseries2symbol(data, N, n, alphabet_size):
     for i in range(len(data)-(N-1)):
         # Remove the current subsection.
         sub_section = data[i:i+N]
+
+        # Z normalize it.
+        sub_section = (sub_section - np.mean(sub_section))/np.std(sub_section)
         
         # take care of the special case where there is no dimensionality reduction
         if N == n:
