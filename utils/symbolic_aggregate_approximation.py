@@ -195,8 +195,33 @@ def pattern_distance(pattern1, pattern2):
             dist_sum += diff
     return np.sqrt(dist_sum)
 
+
+import matplotlib.pyplot as plt
+
 np.random.seed(1)
+
+# Set the duration and frequency of the sine wave
+duration = 5  # seconds
+freq = 1  # Hz
+
+# Create a time vector
+t = np.linspace(0, duration, num=1000)
+
+# Create an amplitude vector that increases linearly with time
+amplitude = np.linspace(0, 1, num=1000)
+
+# Generate the sine wave
+y = amplitude * np.sin(2 * np.pi * freq * t)
+
+# Plot the waveform
+plt.plot(t, y)
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.show()
+
+
 ts1=np.random.normal(0,1,10)
+ts1=y
 ts2=np.random.normal(0,1,10)
 
 
@@ -204,14 +229,15 @@ print(ts1,len(ts1))
 # print(ts2,len(ts2))
 
 
-symbols1,ind=timeseries2symbol(ts2,5,2,10)
+symbols1,ind=timeseries2symbol(ts1,500,10,10)
+print(symbols1,ind)
 symbols12=convert_symbols(symbols1)
-print(symbols1,len(symbols1),ind)
 
-symbols2,_=timeseries2symbol(ts1,5,2,10)
+
+symbols2,_=timeseries2symbol(ts2,5,2,10)
 symbols22=convert_symbols(symbols2)
 # print(symbols2,len(symbols2))
 
-dist=min_dist(symbols1[0],symbols2[0],10,1)
+# dist=min_dist(symbols1[0],symbols2[0],10,1)
 
-print(dist)
+# print(dist)
