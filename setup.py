@@ -1,7 +1,7 @@
 
-from classes.pair_formation import PairFormation
-from classes.trading_phase import TradingPhase
-from classes.portfolio import Portfolio
+from modules.pair_formation import PairFormation
+from modules.trading_phase import TradingPhase
+from modules.portfolio import Portfolio
 from utils.utils import date_change,get_data,save_pickle,tuple_int,argparse
 
 def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--end_date',type=tuple_int,default=(2022,1,1))
     parser.add_argument('--months_trading',type=int,default=12)
     parser.add_argument('--months_forming',type=int,default=36)
-    parser.add_argument('--pairs_alg',type=str,default='DIST')
+    parser.add_argument('--pairs_alg',type=str,default='NSGA')
     parser.add_argument('--trading_alg',type=str,default='TH')
 
     args=parser.parse_args()
