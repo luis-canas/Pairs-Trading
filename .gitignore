@@ -6,6 +6,6 @@ __pycache__/
 *.pkl
 
 
-!screener/nasdaq_screener.csv
-!screener/s&p500_screener.csv
+!screeners/nasdaq_screener.csv
+!screeners/s&p500_screener.csv
 
