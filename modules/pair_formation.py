@@ -18,12 +18,7 @@ from pymoo.optimize import minimize
 
 from pymoo.util.ref_dirs import get_reference_directions
 
-
-
-from tqdm import tqdm
-
 from utils.objectives import PairFormationObjectives
-
 from utils.utils import date_string,dataframe_interval,study_results,results_to_tickers
 
 
@@ -89,7 +84,7 @@ class PairFormation:
         dic = {}
 
         
-        for i in tqdm(range(N)):
+        for i in range(N):
 
             signal1 = data[tickers[i]]
 
@@ -120,7 +115,7 @@ class PairFormation:
 
         pairs = []
 
-        for i in tqdm(range(N)):
+        for i in range(N):
 
             signal1 = data[tickers[i]]
 

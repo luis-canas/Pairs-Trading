@@ -3,8 +3,6 @@ import math
 import numpy as np
 import pandas as pd
 
-from tqdm import tqdm
-
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
 
 PORTFOLIO_INIT = 1000
@@ -195,11 +193,8 @@ class TradingPhase:
         self.__total_portfolio_value = []
         self.__total_cash = [] 
 
-        for i in tqdm(range(n_pairs)):
+        for component1,component2 in all_pairs:
 
-            pair=all_pairs[i]
-            component1=pair[0]
-            component2=pair[1]
    
             component1 = [(ticker in component1) for ticker in tickers]
             component2 = [(ticker in component2) for ticker in tickers]
@@ -283,11 +278,7 @@ class TradingPhase:
         self.__total_portfolio_value = []
         self.__total_cash = [] 
 
-        for i in tqdm(range(n_pairs)):
-
-            pair=all_pairs[i]
-            component1=pair[0]
-            component2=pair[1]
+        for component1,component2 in all_pairs:
    
             component1 = [(ticker in component1) for ticker in tickers]
             component2 = [(ticker in component2) for ticker in tickers]

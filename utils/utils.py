@@ -9,8 +9,9 @@ from os.path import isfile
 import yfinance as yf
 import pickle
 
-file_input='data/'
-file_output='pickle/'
+file_screener='screeners/'
+file_input='series/'
+file_output='results/'
 
 def save_pickle(item):
 
@@ -214,7 +215,7 @@ def get_data(index,sector,start,end):
 
 
     if not isfile(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
-        df = pd.read_csv(file_input+f'{index}_screener.csv',encoding='latin1')
+        df = pd.read_csv(file_screener+f'{index}_screener.csv',encoding='latin1')
 
         mask=df['Sector'].str.contains(sector)
         mask=mask.where(pd.notnull(mask), False).tolist()

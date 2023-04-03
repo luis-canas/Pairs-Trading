@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--end_date',type=tuple_int,default=(2022,1,1))
     parser.add_argument('--months_trading',type=int,default=12)
     parser.add_argument('--months_forming',type=int,default=36)
-    parser.add_argument('--pairs_alg',type=str,default='NSGA')
+    parser.add_argument('--pairs_alg',type=str,default='DIST')
     parser.add_argument('--trading_alg',type=str,default='TH')
 
     args=parser.parse_args()
