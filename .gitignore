@@ -2,9 +2,11 @@
 __pycache__/
 
 *.csv
-*.xlsx
-*.pkl
 !screener/nasdaq_screener.csv
 !screener/s&p500_screener.csv
+*.xlsx
+*.pkl
+
+
 
 
