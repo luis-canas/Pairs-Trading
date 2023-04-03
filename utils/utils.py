@@ -5,15 +5,20 @@ from datetime import datetime
 import argparse
 import statsmodels.api as sm
 import random
-from os.path import isfile
+from os import makedirs
+from os.path import isfile,exists
 import yfinance as yf
 import pickle
 
 file_screener='screeners/'
-file_input='series/'
+file_input='results/'
 file_output='results/'
 
 def save_pickle(item):
+
+    isExist = exists(file_output)
+    if not isExist:
+        makedirs(file_output)
 
     name=item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_'+str(item.months_forming)+'_'+str(item.months_trading)+'_'+item.pairs_alg+'_'+item.trading_alg
 
@@ -213,6 +218,9 @@ def price_of_entire_component(series, component):
 
 def get_data(index,sector,start,end):
 
+    isExist = exists(file_input)
+    if not isExist:
+        makedirs(file_input)
 
     if not isfile(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
         df = pd.read_csv(file_screener+f'{index}_screener.csv',encoding='latin1')
