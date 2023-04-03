@@ -21,13 +21,13 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
     for _ in range(years_simulated):
 
         pair_formation.set_date(train_start,train_end)
-        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=True,plot=False)
+        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=False,plot=False)
 
         trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start,train_end,test_start,test_end)
         performance=trading_phase.run_simulation(trading_alg,verbose=False,plot=False)
 
-        portfolio.report(selected_pairs,performance,verbose=True)
+        portfolio.report(selected_pairs,performance,verbose=False)
 
         train_start=date_change(train_start,months_trading)
         train_end=date_change(train_end,months_trading)

@@ -27,12 +27,20 @@ def save_pickle(item):
 
 def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
+
     name=index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
 
-    with open(file_output+name+'.pkl', 'rb') as input:
-        portfolio = pickle.load(input)
+    isExist = exists(file_output+name+'.pkl')
 
-    return portfolio
+    if not isExist:
+        print('Portfolio ',name,' does not exist!')
+        
+        return
+    else:
+        with open(file_output+name+'.pkl', 'rb') as input:
+            portfolio = pickle.load(input)
+
+        return portfolio
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
