@@ -1,7 +1,14 @@
 
-import math
+
 import numpy as np
 import pandas as pd
+
+
+from pymoo.algorithms.moo.nsga2 import GeneticAlgorithm
+from pymoo.operators.crossover.pntx import TwoPointCrossover
+from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.sampling.rnd import BinaryRandomSampling
+from pymoo.optimize import minimize
 
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
 
@@ -254,7 +261,7 @@ class TradingPhase:
 
 
     def __sax(self,spread, N,M, alphabet_size):
-        
+            GeneticAlgorithm()
             pass
     def __sax_model(self,verbose,plot):
 
