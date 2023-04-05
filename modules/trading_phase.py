@@ -177,8 +177,18 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
     
-    def __threshold_model(self,verbose,plot):
+    def __buy_and_hold():
+        pass
 
+
+    def __sax(self,spread, N,M, alphabet_size):
+            GeneticAlgorithm()
+            pass
+
+
+    def run_simulation(self,model,verbose=False,plot=False):
+
+        function = {'TH':self.__threshold,'SAX':self.__sax}
 
         data=self.__data
 
@@ -225,7 +235,7 @@ class TradingPhase:
 
             norm_spread,_,_,_=compute_zscore(full_spread,spread)
 
-            trade_array=self.__threshold(spread=norm_spread)
+            trade_array=function[model](spread=norm_spread)
             trade_array=self.__force_close(trade_array)
 
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array,FIXED_VALUE=FIXED_VALUE)
@@ -259,100 +269,6 @@ class TradingPhase:
 
         self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
 
-
-    def __sax(self,spread, N,M, alphabet_size):
-            GeneticAlgorithm()
-            pass
-    def __sax_model(self,verbose,plot):
-
-        data=self.__data
-
-        tickers=self.__tickers
-        all_pairs=self.__all_pairs
-
-        n_pairs=len(all_pairs)
-        self.__n_non_convergent_pairs = 0
-        self.__profit = 0
-        self.__loss = 0
-        total_trades = 0
-
-        try:
-            FIXED_VALUE = self.__total_portfolio_value[-1] / n_pairs
-        except:
-            FIXED_VALUE = PORTFOLIO_INIT  / n_pairs
-
-
-        self.__total_portfolio_value = []
-        self.__total_cash = [] 
-
-        for component1,component2 in all_pairs:
-   
-            component1 = [(ticker in component1) for ticker in tickers]
-            component2 = [(ticker in component2) for ticker in tickers]
-            
-            c1 = price_of_entire_component(data, component1)
-            c2 = price_of_entire_component(data, component2)
-
-            c1_train=dataframe_interval(self.__train_start,self.__train_end,c1)
-            c2_train=dataframe_interval(self.__train_start,self.__train_end,c2)
-
-            c1_test=dataframe_interval(self.__test_start,self.__test_end,c1)
-            c2_test=dataframe_interval(self.__test_start,self.__test_end,c2)
-
-            c1_full=dataframe_interval(self.__train_start,self.__test_end,c1)
-            c2_full=dataframe_interval(self.__train_start,self.__test_end,c2)
-
-            beta,_=coint_spread(c1_train,c2_train)
-
-            full_spread=c1_full-beta*c2_full
-            spread=c1_test-beta*c2_test
-
-            norm_spread,_,_,_=compute_zscore(full_spread,spread)
-
-##################################################################################################################################
-            trade_array=self.__sax(spread=norm_spread)
-
-
-##################################################################################################################################
-
-        #     trade_array=self.__force_close(trade_array)
-
-        #     n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array,FIXED_VALUE=FIXED_VALUE)
-
-        #     pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
-
-        #     if verbose: print('Pair performance', pair_performance - 100, '%' )
-        #     if pair_performance > 100:
-        #         self.__profit += 1
-        #     else:
-        #         self.__loss += 1
-
-        #     try:
-        #         aux_pt_value += portfolio_value
-        #         aux_cash += cash
-        #         total_trades += n_trades
-        #     except:
-        #         aux_pt_value = portfolio_value
-        #         aux_cash = cash
-        #         total_trades = n_trades
-
-
-        #     # non convergent pairs
-        #     if days_open[-2] > 0:
-        #         self.__n_non_convergent_pairs += 1
-
-
-        # self.__total_portfolio_value += list(aux_pt_value)
-
-        # self.__total_cash += list(aux_cash)
-
-        # self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
-
-    def run_simulation(self,model,verbose=False,plot=False):
-
-        function = {'TH':self.__threshold_model,'SAX':self.__sax_model}
-
-        function[model](verbose=verbose,plot=plot)
 
         info={
                 "portfolio_start": self.__total_portfolio_value[0],
