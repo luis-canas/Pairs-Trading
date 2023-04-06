@@ -57,44 +57,6 @@ class TradingPhase:
         
         return decision_array
 
-    def __threshold(self,spread,entry=2,close=0):
-
-        longs_entry = spread < -entry
-        longs_exit = spread > -close
-
-        shorts_entry = spread > entry
-        shorts_exit = spread < close
-
-        stabilizing_threshold = 5
-        # in the first 5 days of trading no trades will be made to stabilize the spread
-        longs_entry[:stabilizing_threshold] = False
-        longs_exit[:stabilizing_threshold] = False
-        shorts_entry[:stabilizing_threshold] = False
-        shorts_exit[:stabilizing_threshold] = False
-
-        #numerical_units long/short - equivalent to the long/short_entry arrays but with integers instead of booleans
-        num_units_long = pd.Series([np.nan for i in range(len(spread))])
-        num_units_short = pd.Series([np.nan for i in range(len(spread))])
-
-        num_units_long[longs_entry] = LONG_SPREAD
-        num_units_long[longs_exit] = CLOSE_POSITION
-        num_units_short[shorts_entry] = SHORT_SPREAD
-        num_units_short[shorts_exit] = CLOSE_POSITION
-
-        #a bit redundant, the stabilizing threshold ensures this
-        num_units_long[0] = CLOSE_POSITION
-        num_units_short[0] = CLOSE_POSITION
-
-        #completes the array by propagating the last valid observation
-        num_units_long = num_units_long.fillna(method='ffill')
-        num_units_short = num_units_short.fillna(method='ffill')
-
-        #concatenation of both arrays in a single decision array
-        num_units = num_units_long + num_units_short
-        trade_array = pd.Series(data=num_units.values)
-
-        return trade_array
-
     def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1):
         
         trade_array.iloc[-1] = CLOSE_POSITION  # Close all positions in the last day of the trading period whether they have converged or not
@@ -177,9 +139,49 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
     
-    def __buy_and_hold():
-        pass
+    def __threshold(self,spread,entry=2,close=0):
 
+        longs_entry = spread < -entry
+        longs_exit = spread > -close
+
+        shorts_entry = spread > entry
+        shorts_exit = spread < close
+
+        stabilizing_threshold = 5
+        # in the first 5 days of trading no trades will be made to stabilize the spread
+        longs_entry[:stabilizing_threshold] = False
+        longs_exit[:stabilizing_threshold] = False
+        shorts_entry[:stabilizing_threshold] = False
+        shorts_exit[:stabilizing_threshold] = False
+
+        #numerical_units long/short - equivalent to the long/short_entry arrays but with integers instead of booleans
+        num_units_long = pd.Series([np.nan for i in range(len(spread))])
+        num_units_short = pd.Series([np.nan for i in range(len(spread))])
+
+        num_units_long[longs_entry] = LONG_SPREAD
+        num_units_long[longs_exit] = CLOSE_POSITION
+        num_units_short[shorts_entry] = SHORT_SPREAD
+        num_units_short[shorts_exit] = CLOSE_POSITION
+
+        #a bit redundant, the stabilizing threshold ensures this
+        num_units_long[0] = CLOSE_POSITION
+        num_units_short[0] = CLOSE_POSITION
+
+        #completes the array by propagating the last valid observation
+        num_units_long = num_units_long.fillna(method='ffill')
+        num_units_short = num_units_short.fillna(method='ffill')
+
+        #concatenation of both arrays in a single decision array
+        num_units = num_units_long + num_units_short
+        trade_array = pd.Series(data=num_units.values)
+
+        return trade_array
+    
+    def __buy_and_hold(self,spread):
+        data=np.array(len(spread))
+
+
+        trade_array = pd.Series(data)
 
     def __sax(self,spread, N,M, alphabet_size):
             GeneticAlgorithm()
@@ -188,7 +190,7 @@ class TradingPhase:
 
     def run_simulation(self,model,verbose=False,plot=False):
 
-        function = {'TH':self.__threshold,'SAX':self.__sax}
+        function = {'TH':self.__threshold,'SAX':self.__sax,'BH':self.__buy_and_hold}
 
         data=self.__data
 

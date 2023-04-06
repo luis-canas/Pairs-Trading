@@ -4,7 +4,7 @@ import statsmodels.api as sm
 from statsmodels.tsa.stattools import coint
 
 from utils.utils import price_of_entire_component
-from pymoo.core.problem import ElementwiseProblem
+from pymoo.core.problem import ElementwiseProblem,Problem
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
 
@@ -146,3 +146,13 @@ class PairFormationObjectives(ElementwiseProblem):
         """
 
         return spread.std()
+    
+
+class SaxObjectives(Problem):
+    
+    def __init__(self, price_series, ):
+
+        pass
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        pass
