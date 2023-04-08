@@ -12,6 +12,8 @@ from pymoo.optimize import minimize
 
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
 
+from utils.objectives import SaxObjectives
+
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
 CLOSE_INACTIVITY = 126
@@ -177,16 +179,24 @@ class TradingPhase:
 
         return trade_array
     
-    def __buy_and_hold(self,spread):
-        data=np.array(len(spread))
+    def __sax(self,spread, N,M, alphabet_size,verbose=True):
+        gen = 80
 
 
-        trade_array = pd.Series(data)
+        algorithm = GeneticAlgorithm(pop_size=50,
+                        sampling=BinaryRandomSampling(),
+                        crossover=TwoPointCrossover(),
+                        mutation=BitflipMutation(),
+                        eliminate_duplicates=True)
 
-    def __sax(self,spread, N,M, alphabet_size):
-            GeneticAlgorithm()
-            pass
 
+        pairs_objectives = SaxObjectives(spread)
+
+        results = minimize(pairs_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=verbose)
+        
+        trade_array = results
+
+        return trade_array
 
     def run_simulation(self,model,verbose=False,plot=False):
 

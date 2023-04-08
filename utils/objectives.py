@@ -5,6 +5,10 @@ from statsmodels.tsa.stattools import coint
 
 from utils.utils import price_of_entire_component
 from pymoo.core.problem import ElementwiseProblem,Problem
+from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance
+
+from modules.trading_phase import TradingPhase
+
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
 
@@ -13,8 +17,6 @@ N_CONSTRAINTS = 6  # 4 regarding the number of elements, 1 since a stocks can't 
 """MIN_ELEMENTS = 2  # min and max stocks per component
 MAX_ELEMENTS = 5"""
 COINT_CUTOFF = 0.05  # the adf test has a maximum value so that a time series is can be considered stationary
-
-
 
 
 class PairFormationObjectives(ElementwiseProblem):
@@ -149,10 +151,74 @@ class PairFormationObjectives(ElementwiseProblem):
     
 
 class SaxObjectives(Problem):
-    
-    def __init__(self, price_series, ):
 
-        pass
+    def __init__(self,spread,c1,c2,window_size=10, word_size=10,alphabet_size=3):
 
-    def _evaluate(self, x, out, *args, **kwargs):
-        pass
+        super().__init__(n_var=window_size + 3, n_obj=1, n_constr=0)
+        self.spread=spread
+        self.c1=c1
+        self.c2=c2
+        self.window_size = window_size
+        self.word_size = word_size
+        self.alphabet_size = alphabet_size
+
+        def _evaluate(self, x, out, *args, **kwargs):
+            
+            # Extract parameters from the chromosome
+            dist_buy = x[0]
+            dist_sell = x[1]
+            measure_type = int(x[2])
+            pattern = x[3:]
+            
+            # Initialize variables for tracking trades and earnings
+            in_position = False
+            FIXED_VALUE = 1000
+            stocks_in_hand = np.zeros(2)
+            cash_in_hand=FIXED_VALUE
+            
+            # Slide a window along the time series and convert to SAX
+            for i in range(len(self.spread) - self.window_size):
+
+                day=i+self.window_size
+                window = self.spread[i:day]
+                sax_seq = timeseries2symbol(window, len(window), self.word_size, self.alphabet_size)
+                
+                # Calculate the distance to the pattern
+                if measure_type == 0:
+                    dist = min_dist(sax_seq,pattern)
+                else:
+                    dist = pattern_distance(sax_seq,pattern)
+                
+                # Apply the buy and sell rules
+                if not in_position and dist <= dist_buy:
+                    
+                    in_position = True
+
+                    value_to_buy = min(FIXED_VALUE, cash_in_hand)
+                    # long c1
+                    cash_in_hand+= -value_to_buy
+                    stocks_in_hand[0] = value_to_buy / c1[day]
+                    # short c2
+                    cash_in_hand+= value_to_buy
+                    stocks_in_hand[1] = -value_to_buy / c2[day]
+
+
+                elif in_position and dist >= dist_sell:
+
+                    in_position = False
+                    sale_value = stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+                    cash_in_hand += sale_value
+                    stocks_in_hand[0] = stocks_in_hand[1] = 0  # both positions were closed
+
+                # elif in_position and i % days_sell == 0:
+
+                #     in_position = False
+                #     sale_value = stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+                #     cash_in_hand += sale_value
+                #     stocks_in_hand[0] = stocks_in_hand[1] = 0  # both positions were closed
+            
+            portfolio_value = cash_in_hand + stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+
+            # Set the fitness value to the total earnings
+            out["F"] = [-portfolio_value]
+        
