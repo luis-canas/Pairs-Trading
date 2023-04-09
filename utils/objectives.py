@@ -162,13 +162,13 @@ class SaxObjectives(ElementwiseProblem):
         self.alphabet_size = alphabet_size
 
         variables_lb=[0, 0, 0]
-        variables_ub=[100, 100, 1]
+        variables_ub=[50, 50, 1]
 
-        pattern_lb=[2.0]*window_size
+        pattern_lb=[1]*window_size
         pattern_ub=[alphabet_size]*window_size
 
-        x1=np.concatenate((variables_lb, pattern_lb),dtype=float)
-        xu=np.concatenate((variables_ub, pattern_ub),dtype=float)
+        x1=np.concatenate((variables_lb, pattern_lb))
+        xu=np.concatenate((variables_ub, pattern_ub))
 
         super().__init__(n_var=window_size+3, 
                          n_obj=1, 
@@ -182,8 +182,8 @@ class SaxObjectives(ElementwiseProblem):
         # Extract parameters from the chromosome
         dist_buy = x[0]
         dist_sell = x[1]
-        measure_type = x[2]
-        pattern = x[3:]
+        measure_type = np.round(x[2])
+        pattern = np.round(x[3:]).reshape(1,self.window_size)
         
         # Initialize variables for tracking trades and earnings
         in_position = False

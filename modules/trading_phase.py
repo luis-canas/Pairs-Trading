@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 
 
-from pymoo.algorithms.moo.nsga2 import GeneticAlgorithm
+from pymoo.algorithms.soo.nonconvex.ga import GA
+
 from pymoo.operators.crossover.pntx import TwoPointCrossover
 from pymoo.operators.mutation.bitflip import BitflipMutation
-from pymoo.operators.sampling.rnd import BinaryRandomSampling
+
 from pymoo.optimize import minimize
 
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
@@ -186,10 +187,9 @@ class TradingPhase:
 
         gen = 80
 
-        algorithm = GeneticAlgorithm(pop_size=50,
-                        sampling=BinaryRandomSampling(),
-                        crossover=TwoPointCrossover(),
-                        mutation=BitflipMutation(),
+        algorithm = GA(pop_size=50,
+                        # crossover=TwoPointCrossover(),
+                        # mutation=BitflipMutation(),
                         eliminate_duplicates=True)
 
 
