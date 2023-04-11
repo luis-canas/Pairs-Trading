@@ -142,7 +142,10 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
     
-    def __threshold(self,spread,c1_train,c2_train,c1_test,c2_test,verbose=True):
+    def __threshold(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
+
+        #norm spread
+        spread,_,_,_=compute_zscore(spread_full,spread_test)
 
         entry=2
         close=0
@@ -183,7 +186,7 @@ class TradingPhase:
 
         return trade_array
     
-    def __sax(self,spread,c1_train,c2_train,c1_test,c2_test,verbose=True):
+    def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
         gen = 80
 
@@ -193,7 +196,7 @@ class TradingPhase:
                         eliminate_duplicates=True)
 
 
-        sax_objectives = SaxObjectives(spread=spread,c1=c1_train,c2=c2_train)
+        sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train)
 
         results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=verbose)
         
@@ -201,7 +204,7 @@ class TradingPhase:
 
         return trade_array
 
-    def run_simulation(self,model,verbose=False,plot=False):
+    def run_simulation(self,model,verbose=True,plot=True):
 
         function = {'TH':self.__threshold,'SAX':self.__sax}
 
@@ -243,14 +246,12 @@ class TradingPhase:
             c1_full=dataframe_interval(self.__train_start,self.__test_end,c1)
             c2_full=dataframe_interval(self.__train_start,self.__test_end,c2)
 
-            beta,_=coint_spread(c1_train,c2_train)
+            beta,spread_train=coint_spread(c1_train,c2_train)
 
-            full_spread=c1_full-beta*c2_full
-            spread=c1_test-beta*c2_test
+            spread_full=c1_full-beta*c2_full
+            spread_test=c1_test-beta*c2_test
 
-            norm_spread,_,_,_=compute_zscore(full_spread,spread)
-
-            trade_array=function[model](spread=norm_spread,c1_train=c1_train,c2_train=c2_train,c1_test=c1_test,c2_test=c2_test)
+            trade_array=function[model](spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=verbose)
             trade_array=self.__force_close(trade_array)
 
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable=self.__trade_spread(c1=c1_test, c2=c2_test, trade_array=trade_array,FIXED_VALUE=FIXED_VALUE)
