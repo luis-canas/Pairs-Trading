@@ -21,11 +21,11 @@ def main(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,m
     for _ in range(years_simulated):
 
         pair_formation.set_date(train_start,train_end)
-        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=True,plot=False)
+        selected_pairs=pair_formation.find_pairs(pairs_alg,verbose=False,plot=False)
 
         trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start,train_end,test_start,test_end)
-        performance=trading_phase.run_simulation(trading_alg,verbose=True,plot=False)
+        performance=trading_phase.run_simulation(trading_alg,verbose=False,plot=False)
 
         portfolio.report(selected_pairs,performance,verbose=False)
 
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     parser.add_argument('--months_trading',type=int,default=12)
     parser.add_argument('--months_forming',type=int,default=36)
     parser.add_argument('--pairs_alg',type=str,default='DIST')
-    parser.add_argument('--trading_alg',type=str,default='SAX')
+    parser.add_argument('--trading_alg',type=str,default='TH')
 
     args=parser.parse_args()
 

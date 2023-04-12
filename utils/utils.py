@@ -202,7 +202,7 @@ def compute_zscore(full_spread, test_spread):
     
 
     for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[ day: (day + offset)] #one year
+        spread_to_consider = full_spread[ day: day + (offset + 1)]
 
         norm_spread[day] = (daily_value - spread_to_consider.mean()) / np.std(spread_to_consider) 
 

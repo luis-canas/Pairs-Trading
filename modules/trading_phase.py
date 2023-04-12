@@ -189,22 +189,23 @@ class TradingPhase:
     
     def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
-        gen = 80
+        gen = 1
 
         algorithm = GA(pop_size=50,
                         # crossover=TwoPointCrossover(),
                         # mutation=BitflipMutation(),
                         eliminate_duplicates=True)
-
-
-        sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train)
-
-        results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
         
         window_size=10
         word_size=10
         alphabet_size=3
-        in_Position=False
+
+        sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train,window_size=window_size,word_size=word_size,alphabet_size=alphabet_size)
+
+        results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
+        
+        
+        in_position=False
         x=results.X
         dist_buy = x[0]
         dist_sell = x[1]
@@ -216,12 +217,13 @@ class TradingPhase:
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
         stabilizing_threshold = 5
 
-        for day in range(spread_test):
+        for day in range(len(spread_test)):
 
             if day < stabilizing_threshold:
                 continue
             
-            window = spread_full[offset-window_size+day:offset+day]
+          
+            window = spread_full[offset - (window_size-1) + day: (offset + 1) + day]
 
             sax_seq,_ = timeseries2symbol(window, len(window), word_size, alphabet_size)
             

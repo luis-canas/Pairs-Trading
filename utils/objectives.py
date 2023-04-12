@@ -152,7 +152,7 @@ class PairFormationObjectives(ElementwiseProblem):
 
 class SaxObjectives(ElementwiseProblem):
 
-    def __init__(self,spread,c1,c2,window_size=10, word_size=10,alphabet_size=3):
+    def __init__(self,spread,c1,c2,window_size, word_size,alphabet_size):
 
         self.spread=spread
         self.c1=c1
