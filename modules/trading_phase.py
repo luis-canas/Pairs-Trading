@@ -12,6 +12,7 @@ from pymoo.operators.mutation.bitflip import BitflipMutation
 from pymoo.optimize import minimize
 
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
+from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance
 
 from utils.objectives import SaxObjectives
 
@@ -198,9 +199,49 @@ class TradingPhase:
 
         sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train)
 
-        results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=verbose)
+        results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
         
-        trade_array = results
+        window_size=10
+        word_size=10
+        alphabet_size=3
+        in_Position=False
+        x=results.X
+        dist_buy = x[0]
+        dist_sell = x[1]
+        measure_type = np.round(x[2])
+        pattern = np.round(x[3:]).reshape(1,window_size)
+
+        i=spread_test.index[0]
+        offset = spread_full.index.get_loc(i)
+        trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        stabilizing_threshold = 5
+
+        for day in range(spread_test):
+
+            if day < stabilizing_threshold:
+                continue
+            
+            window = spread_full[offset-window_size+day:offset+day]
+
+            sax_seq,_ = timeseries2symbol(window, len(window), word_size, alphabet_size)
+            
+            # Calculate the distance to the pattern
+            if measure_type == 0:
+                dist = min_dist(sax_seq,pattern,alphabet_size,1)
+            else:
+                dist = pattern_distance(sax_seq,pattern)
+            
+            # Apply the buy and sell rules
+            if not in_position and dist <= dist_buy:
+                
+                in_position = True
+                trade_array[day]=LONG_SPREAD
+
+            elif in_position and dist >= dist_sell:
+
+                in_position = False
+                trade_array[day]=CLOSE_POSITION
+
 
         return trade_array
 
