@@ -222,7 +222,7 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
             
-          
+            #window of current day plus previous window_size days - 1 
             window = spread_full[offset - (window_size-1) + day: (offset + 1) + day]
 
             sax_seq,_ = timeseries2symbol(window, len(window), word_size, alphabet_size)

@@ -50,4 +50,45 @@ def sax_test():
 
     # print(dist)
 
-sax_test()
+def pattern__test():
+
+    word_size=5
+    alphabet_size=10
+
+    np.random.seed(1)
+    # Set the duration and frequency of the sine wave
+    duration = 1  # seconds
+    freq = 1  # Hz
+
+    # Create a time vector
+    t = np.linspace(0, duration, num=duration*100)
+
+
+    # Generate the sine wave
+    y = np.sin(2 * np.pi * freq * t)
+
+    n = np.random.normal(scale=10, size=y.size)
+
+    y = 100 * np.sin(y) + n
+
+    symbols,ind=timeseries2symbol(y,duration*100,word_size,alphabet_size)
+
+    print(symbols)
+    # Plot the waveform
+    plt.plot(t, y)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+
+    # specify the number of vertical bars you want to divide the plot into
+    num_bars = word_size
+    # calculate the positions of the bars
+    bar_positions = [t[0] + (i+1)*(t[-1]-t[0])/(num_bars+1) for i in range(num_bars)]
+
+    # add vertical lines to the plot at the specified positions
+    for pos in bar_positions:
+        plt.axvline(x=pos, color='k', linestyle='--')
+
+    plt.xlim(t[0],t[-1])
+    plt.show()
+
+pattern__test()
