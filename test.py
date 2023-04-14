@@ -52,35 +52,36 @@ def sax_test():
 
 def pattern__test():
 
-    word_size=5
+    word_size=10
     alphabet_size=10
 
     np.random.seed(1)
     # Set the duration and frequency of the sine wave
-    duration = 1  # seconds
+    duration = 1.5  # seconds
     freq = 1  # Hz
 
     # Create a time vector
-    t = np.linspace(0, duration, num=duration*100)
+    t = np.linspace(0, duration, num=int(duration*100))
 
 
     # Generate the sine wave
     y = np.sin(2 * np.pi * freq * t)
 
-    n = np.random.normal(scale=10, size=y.size)
+    n = np.random.normal(scale=0, size=y.size)
 
     y = 100 * np.sin(y) + n
 
-    symbols,ind=timeseries2symbol(y,duration*100,word_size,alphabet_size)
+    symbols,ind=timeseries2symbol(y,len(y),word_size,alphabet_size)
 
-    print(symbols)
+    symbols=convert_symbols(symbols)
+
     # Plot the waveform
     plt.plot(t, y)
     plt.xlabel('Time (s)')
     plt.ylabel('Amplitude')
 
     # specify the number of vertical bars you want to divide the plot into
-    num_bars = word_size
+    num_bars = word_size-1
     # calculate the positions of the bars
     bar_positions = [t[0] + (i+1)*(t[-1]-t[0])/(num_bars+1) for i in range(num_bars)]
 
@@ -89,6 +90,13 @@ def pattern__test():
         plt.axvline(x=pos, color='k', linestyle='--')
 
     plt.xlim(t[0],t[-1])
+
+    #bar_positions
+    bar_width=bar_positions[1]-bar_positions[0]
+    # calculate the positions of the bars
+    sym_positions = [bar_width/2 + i*bar_width for i in range(word_size)]
+    for i, pos in enumerate(sym_positions):
+        plt.text(pos, 0.9, symbols[i], ha='center',fontweight='bold',fontsize=14)
     plt.show()
 
 pattern__test()

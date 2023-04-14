@@ -125,7 +125,7 @@ def convert_symbols(symbols):
     }
 
     # Convert the symbols to letters and join them into a string for each row
-    return np.array([''.join([letter_dict[int(num)] for num in row]) for row in symbols])
+    return [letter_dict[int(num)] for row in symbols for num in row]
 
 def min_dist(str1, str2, alphabet_size, compression_ratio):
     if len(str1) != len(str2):
