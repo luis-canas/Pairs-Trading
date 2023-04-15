@@ -185,12 +185,4 @@ def pattern_distance(pattern1, pattern2):
     """
     Calculate the distance between two patterns
     """
-    dist_sum = 0.0
-    for i in range(len(pattern1)):
-        for j in range(len(pattern2)):
-
-            # calculate the squared difference between the indices
-            diff = (j - i) ** 2
-            # add to the sum
-            dist_sum += diff
-    return np.sqrt(dist_sum)
+    return np.linalg.norm(pattern1 - pattern2)

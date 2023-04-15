@@ -1,5 +1,5 @@
 import numpy as np
-from utils.symbolic_aggregate_approximation import timeseries2symbol,convert_symbols
+from utils.symbolic_aggregate_approximation import timeseries2symbol,convert_symbols,pattern_distance,min_dist
 import matplotlib.pyplot as plt
 
 def sax_test():
@@ -50,7 +50,7 @@ def sax_test():
 
     # print(dist)
 
-def pattern__test():
+def simple_pattern__test():
 
     word_size=10
     alphabet_size=10
@@ -99,4 +99,31 @@ def pattern__test():
         plt.text(pos, 0.9, symbols[i], ha='center',fontweight='bold',fontsize=14)
     plt.show()
 
-pattern__test()
+def pattern_distance_test():
+    word_size=10
+    alphabet_size=10
+
+    np.random.seed(1)
+    # Set the duration and frequency of the sine wave
+    duration = 1.5  # seconds
+    freq = 1  # Hz
+
+    # Create a time vector
+    t = np.linspace(0, duration, num=int(duration*100))
+    
+
+
+    # Generate the sine wave
+    y = np.sin(2 * np.pi * freq * t)
+
+    y2=np.sin(3 * np.pi * freq * t)
+
+    symbols1,ind=timeseries2symbol(y,len(y),word_size,alphabet_size)
+    symbols2,ind=timeseries2symbol(y2,len(y2),word_size,alphabet_size)
+
+    print(pattern_distance(symbols1[0],symbols2[0]))
+    print(min_dist(symbols1[0],symbols2[0],alphabet_size,len(symbols1[0])/word_size))
+
+
+
+pattern_distance_test()
