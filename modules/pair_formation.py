@@ -75,7 +75,7 @@ class PairFormation:
 
 
 
-    def __distance_pairs(self,pair_number =  20,verbose=False,plot=False):
+    def __distance_pairs(self,pair_number =  10,verbose=False,plot=False):
 
         data = self.__data
         tickers = self.__tickers

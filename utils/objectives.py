@@ -6,7 +6,7 @@ from statsmodels.tsa.stattools import coint
 from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance
 from utils.utils import price_of_entire_component
 from pymoo.core.problem import ElementwiseProblem
-
+from pymoo.operators.crossover.pntx import TwoPointCrossover
 
 
 # Constants
@@ -236,4 +236,3 @@ class SaxObjectives(ElementwiseProblem):
 
         # Set the fitness value to the total earnings
         out["F"] = -portfolio_value
-    

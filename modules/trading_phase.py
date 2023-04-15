@@ -7,7 +7,7 @@ import pandas as pd
 from pymoo.algorithms.soo.nonconvex.ga import GA
 
 from pymoo.operators.crossover.pntx import TwoPointCrossover
-from pymoo.operators.mutation.bitflip import BitflipMutation
+from pymoo.operators.mutation.pm import PolynomialMutation
 
 from pymoo.optimize import minimize
 
@@ -189,16 +189,17 @@ class TradingPhase:
     
     def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
-        gen = 1
-
-        algorithm = GA(pop_size=50,
-                        # crossover=TwoPointCrossover(),
-                        # mutation=BitflipMutation(),
-                        eliminate_duplicates=True)
-        
+        gen = 2
         window_size=10
         word_size=10
         alphabet_size=3
+
+        algorithm = GA(pop_size=50,
+                        crossover=TwoPointCrossover(prob=0.9),
+                        mutation=PolynomialMutation(prob=0.1),
+                        eliminate_duplicates=True)
+        
+     
 
         sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train,window_size=window_size,word_size=word_size,alphabet_size=alphabet_size)
 
