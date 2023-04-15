@@ -1,5 +1,5 @@
 import numpy as np
-from utils.symbolic_aggregate_approximation import timeseries2symbol,convert_symbols,pattern_distance,min_dist
+from utils.symbolic_aggregate_approximation import timeseries2symbol,convert_symbols,pattern_distance,min_dist,find_pattern
 import matplotlib.pyplot as plt
 
 def sax_test():
@@ -100,7 +100,7 @@ def simple_pattern__test():
     plt.show()
 
 def pattern_distance_test():
-    word_size=10
+    word_size=3
     alphabet_size=10
 
     np.random.seed(1)
@@ -118,11 +118,11 @@ def pattern_distance_test():
 
     y2=np.sin(3 * np.pi * freq * t)
 
-    symbols1,ind=timeseries2symbol(y,len(y),word_size,alphabet_size)
-    symbols2,ind=timeseries2symbol(y2,len(y2),word_size,alphabet_size)
+    symbols1=find_pattern([1,0,2,4],word_size,alphabet_size)
+    symbols2=find_pattern(y2,word_size,alphabet_size)
 
-    print(pattern_distance(symbols1[0],symbols2[0]))
-    print(min_dist(symbols1[0],symbols2[0],alphabet_size,len(symbols1[0])/word_size))
+    print(pattern_distance(symbols1,symbols2))
+    print(min_dist(symbols1,symbols2,alphabet_size,len(symbols1)/word_size))
 
 
 

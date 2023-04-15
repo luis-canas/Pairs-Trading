@@ -186,3 +186,39 @@ def pattern_distance(pattern1, pattern2):
     Calculate the distance between two patterns
     """
     return np.linalg.norm(pattern1 - pattern2)
+
+
+
+from scipy.stats import norm
+
+def find_pattern(data,n, alphabet_size):
+
+    N=len(data)
+    win_size = int(N/n)  # number of data points on the raw time series that will be mapped to a single symbol
+
+    # Z normalize section.
+    section = (data - np.mean(data))/np.std(data)
+        
+    # take care of the special case where there is no dimensionality reduction
+    if N == n:
+        PAA = section
+    
+    # Convert to PAA.  
+    else:
+        # N is not dividable by n
+        if (N/n - np.floor(N/n)):
+            expanded_section = np.tile(section, n)
+            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=0)
+        # N is dividable by n
+        else:
+            PAA = np.mean(np.reshape(section, (win_size, n)),axis=0)
+
+    # norm distribution breakpoints by scipy.stats
+    cut_points = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))
+    
+    SAX = np.zeros(len(PAA))
+
+    for i in range(len(PAA)):
+        SAX[i] = np.sum(np.where(cut_points <= PAA[i],1,0))
+    
+    return SAX
