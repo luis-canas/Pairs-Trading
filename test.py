@@ -1,6 +1,7 @@
 import numpy as np
 from utils.symbolic_aggregate_approximation import timeseries2symbol,convert_symbols,pattern_distance,min_dist,find_pattern
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def sax_test():
 
@@ -52,31 +53,32 @@ def sax_test():
 
 def simple_pattern__test():
 
-    word_size=10
+    word_size=3
     alphabet_size=10
 
     np.random.seed(1)
     # Set the duration and frequency of the sine wave
     duration = 1.5  # seconds
     freq = 1  # Hz
+    num=int(duration*100)
 
     # Create a time vector
-    t = np.linspace(0, duration, num=int(duration*100))
+    t = np.linspace(0, duration, num=num)
 
 
     # Generate the sine wave
     y = np.sin(2 * np.pi * freq * t)
 
-    n = np.random.normal(scale=0, size=y.size)
+    n = np.random.normal(scale=5, size=y.size)
 
     y = 100 * np.sin(y) + n
 
-    symbols,ind=timeseries2symbol(y,len(y),word_size,alphabet_size)
+    symbols,PAA=find_pattern(y,word_size,alphabet_size)
 
-    symbols=convert_symbols(symbols)
+    # symbols=convert_symbols(symbols)
 
     # Plot the waveform
-    plt.plot(t, y)
+    plt.plot(t, (y-np.mean(y))/np.std(y),label='Original Signal')
     plt.xlabel('Time (s)')
     plt.ylabel('Amplitude')
 
@@ -97,11 +99,20 @@ def simple_pattern__test():
     sym_positions = [bar_width/2 + i*bar_width for i in range(word_size)]
     for i, pos in enumerate(sym_positions):
         plt.text(pos, 0.9, symbols[i], ha='center',fontweight='bold',fontsize=14)
+
+    # calculate the positions of the PAA
+    paa_positions = [i*len(y)//word_size for i in range(word_size)]
+    sax_plot = pd.Series([np.nan for i in range(len(y))])
+    for id,pos in enumerate(paa_positions):
+        sax_plot[pos]=PAA[id]
+    sax_plot = sax_plot.fillna(method='ffill').to_numpy()
+    for i in range(len(PAA)):
+        plt.plot(t,sax_plot, c='r')
     plt.show()
 
 def pattern_distance_test():
-    word_size=3
-    alphabet_size=10
+    word_size=20
+    alphabet_size=20
 
     np.random.seed(1)
     # Set the duration and frequency of the sine wave
@@ -118,12 +129,12 @@ def pattern_distance_test():
 
     y2=np.sin(3 * np.pi * freq * t)
 
-    symbols1=find_pattern([1,0,2,4],word_size,alphabet_size)
-    symbols2=find_pattern(y2,word_size,alphabet_size)
-
+    symbols1,_=find_pattern(y,word_size,alphabet_size)
+    symbols2,_=timeseries2symbol(y,len(y),word_size,alphabet_size)
+    print(symbols1,symbols2)
     print(pattern_distance(symbols1,symbols2))
     print(min_dist(symbols1,symbols2,alphabet_size,len(symbols1)/word_size))
 
 
 
-pattern_distance_test()
+simple_pattern__test()

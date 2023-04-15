@@ -10,6 +10,54 @@ References
 """
 
 import numpy as np
+from scipy.stats import norm
+
+
+def pattern_distance(pattern1, pattern2):
+    """
+    Calculate the distance between two patterns
+    """
+    return np.linalg.norm(pattern1 - pattern2)
+
+
+
+
+def find_pattern(data,n, alphabet_size):
+
+    N=len(data)
+    win_size = int(N/n)  # number of data points on the raw time series that will be mapped to a single symbol
+
+    # Z normalize section.
+    section = (data - np.mean(data))/np.std(data)
+        
+    # take care of the special case where there is no dimensionality reduction
+    if N == n:
+        PAA = section
+    
+    # Convert to PAA.  
+    else:
+        # N is not dividable by n
+        if (N/n - np.floor(N/n)):
+            expanded_section = np.tile(section, n)
+            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=1)
+        # N is dividable by n
+        else:
+            s=np.reshape(section, (win_size, n))
+            ss=np.mean(s,axis=1)
+            PAA = np.mean(np.reshape(section, (win_size, n)),axis=1)
+
+    # norm distribution breakpoints by scipy.stats
+    breakpoints = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))
+    
+    SAX = np.zeros(PAA.shape, dtype=int) - 1
+
+    for id, bp in enumerate(breakpoints):
+        indices = np.logical_and(SAX < 0, PAA < bp)
+        SAX[indices] = id
+    SAX[SAX < 0] = alphabet_size - 1
+
+
+    return SAX,PAA
 
 
 def timeseries2symbol(data, N, n, alphabet_size):
@@ -125,7 +173,7 @@ def convert_symbols(symbols):
     }
 
     # Convert the symbols to letters and join them into a string for each row
-    return [letter_dict[int(num)] for row in symbols for num in row]
+    return [letter_dict[int(num)] for num in symbols]
 
 def min_dist(str1, str2, alphabet_size, compression_ratio):
     if len(str1) != len(str2):
@@ -180,45 +228,3 @@ def build_dist_table(alphabet_size):
             dist_matrix[j,i] = dist_matrix[i,j]
 
     return dist_matrix
-
-def pattern_distance(pattern1, pattern2):
-    """
-    Calculate the distance between two patterns
-    """
-    return np.linalg.norm(pattern1 - pattern2)
-
-
-
-from scipy.stats import norm
-
-def find_pattern(data,n, alphabet_size):
-
-    N=len(data)
-    win_size = int(N/n)  # number of data points on the raw time series that will be mapped to a single symbol
-
-    # Z normalize section.
-    section = (data - np.mean(data))/np.std(data)
-        
-    # take care of the special case where there is no dimensionality reduction
-    if N == n:
-        PAA = section
-    
-    # Convert to PAA.  
-    else:
-        # N is not dividable by n
-        if (N/n - np.floor(N/n)):
-            expanded_section = np.tile(section, n)
-            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=0)
-        # N is dividable by n
-        else:
-            PAA = np.mean(np.reshape(section, (win_size, n)),axis=0)
-
-    # norm distribution breakpoints by scipy.stats
-    cut_points = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))
-    
-    SAX = np.zeros(len(PAA))
-
-    for i in range(len(PAA)):
-        SAX[i] = np.sum(np.where(cut_points <= PAA[i],1,0))
-    
-    return SAX
