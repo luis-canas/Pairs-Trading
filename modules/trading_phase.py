@@ -231,10 +231,7 @@ class TradingPhase:
             sax_seq,_ = find_pattern(window, word_size, alphabet_size)
             
             # Calculate the distance to the pattern
-            if measure_type == 0:
-                dist = min_dist(sax_seq,pattern,alphabet_size,1)
-            else:
-                dist = pattern_distance(sax_seq,pattern)
+            dist = pattern_distance(sax_seq,pattern)
             
             # Apply the buy and sell rules
             if not in_position and dist <= dist_buy:
