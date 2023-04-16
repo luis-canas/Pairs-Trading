@@ -61,7 +61,7 @@ class TradingPhase:
         
         return decision_array
 
-    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1):
+    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE = 0, commission = 0.08,  market_impact=0.2, short_loan=1):
         
         trade_array.iloc[-1] = CLOSE_POSITION  # Close all positions in the last day of the trading period whether they have converged or not
 
