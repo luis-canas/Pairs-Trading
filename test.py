@@ -53,7 +53,7 @@ def sax_test():
 
 def simple_pattern__test():
 
-    word_size=3
+    word_size=15
     alphabet_size=10
 
     np.random.seed(1)

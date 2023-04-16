@@ -39,12 +39,26 @@ def find_pattern(data,n, alphabet_size):
         # N is not dividable by n
         if (N/n - np.floor(N/n)):
             expanded_section = np.tile(section, n)
-            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=1)
+            r_expanded_section=np.reshape(expanded_section, (n, N))
+            # Create a matrix of zeros
+            temp = np.zeros((n, N))
+
+            # Loop over each row and assign sub_section to it
+            for j in range(n):
+                temp[j, :] = section
+
+            print(temp)
+
+            # Reshape the matrix into a row vector
+            expanded_section = temp.reshape((1, N*n))
+            print(expanded_section)
+            expanded_section = np.tile(section, n)
+            print(expanded_section)
+            print(r_expanded_section)
+            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=0)
         # N is dividable by n
         else:
-            s=np.reshape(section, (win_size, n))
-            ss=np.mean(s,axis=1)
-            PAA = np.mean(np.reshape(section, (win_size, n)),axis=1)
+            PAA = np.mean(np.reshape(section, (n,win_size)),axis=1)
 
     # norm distribution breakpoints by scipy.stats
     breakpoints = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))

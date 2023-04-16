@@ -12,7 +12,7 @@ from pymoo.operators.mutation.pm import PolynomialMutation
 from pymoo.optimize import minimize
 
 from utils.utils import date_string,price_of_entire_component,compute_zscore,dataframe_interval,coint_spread
-from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance
+from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance,find_pattern
 
 from utils.objectives import SaxObjectives
 
@@ -189,8 +189,8 @@ class TradingPhase:
     
     def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
-        gen = 2
-        window_size=10
+        gen = 50
+        window_size=100
         word_size=10
         alphabet_size=3
 
@@ -201,7 +201,7 @@ class TradingPhase:
         
      
 
-        sax_objectives = SaxObjectives(spread=spread_train,c1=c1_train,c2=c2_train,window_size=window_size,word_size=word_size,alphabet_size=alphabet_size)
+        sax_objectives = SaxObjectives(spread=spread_train.to_numpy(),c1=c1_train.to_numpy(),c2=c2_train.to_numpy(),window_size=window_size,word_size=word_size,alphabet_size=alphabet_size)
 
         results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
         
@@ -211,12 +211,14 @@ class TradingPhase:
         dist_buy = x[0]
         dist_sell = x[1]
         measure_type = np.round(x[2])
-        pattern = np.round(x[3:]).reshape(1,window_size)
+        pattern = np.round(x[3:])
 
         i=spread_test.index[0]
         offset = spread_full.index.get_loc(i)
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
         stabilizing_threshold = 5
+
+        spread=spread_full.to_numpy()
 
         for day in range(len(spread_test)):
 
@@ -224,9 +226,9 @@ class TradingPhase:
                 continue
             
             #window of current day plus previous window_size days - 1 
-            window = spread_full[offset - (window_size-1) + day: (offset + 1) + day]
+            window = spread[offset - (window_size-1) + day: (offset + 1) + day]
 
-            sax_seq,_ = timeseries2symbol(window, len(window), word_size, alphabet_size)
+            sax_seq,_ = find_pattern(window, word_size, alphabet_size)
             
             # Calculate the distance to the pattern
             if measure_type == 0:

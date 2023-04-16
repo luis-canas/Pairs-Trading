@@ -3,7 +3,7 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import coint
 
-from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance
+from utils.symbolic_aggregate_approximation import timeseries2symbol,min_dist,pattern_distance,find_pattern
 from utils.utils import price_of_entire_component
 from pymoo.core.problem import ElementwiseProblem
 from pymoo.operators.crossover.pntx import TwoPointCrossover
@@ -164,13 +164,13 @@ class SaxObjectives(ElementwiseProblem):
         variables_lb=[0, 0, 0]
         variables_ub=[50, 50, 1]
 
-        pattern_lb=[1]*window_size
-        pattern_ub=[alphabet_size]*window_size
+        pattern_lb=[0]*word_size
+        pattern_ub=[alphabet_size-1]*word_size
 
         x1=np.concatenate((variables_lb, pattern_lb))
         xu=np.concatenate((variables_ub, pattern_ub))
 
-        super().__init__(n_var=window_size+3, 
+        super().__init__(n_var=word_size+3, 
                          n_obj=1, 
                          n_constr=0, 
                          xl=x1, 
@@ -183,7 +183,7 @@ class SaxObjectives(ElementwiseProblem):
         dist_buy = x[0]
         dist_sell = x[1]
         measure_type = np.round(x[2])
-        pattern = np.round(x[3:]).reshape(1,self.window_size)
+        pattern = np.round(x[3:])
         
         # Initialize variables for tracking trades and earnings
         in_position = False
@@ -196,11 +196,12 @@ class SaxObjectives(ElementwiseProblem):
 
             day=i+self.window_size
             window = self.spread[i:day]
-            sax_seq,_ = timeseries2symbol(window, len(window), self.word_size, self.alphabet_size)
+            sax_seq,_ = find_pattern(window, self.word_size, self.alphabet_size)
             
             # Calculate the distance to the pattern
             if measure_type == 0:
-                dist = min_dist(sax_seq,pattern,self.alphabet_size,1)
+                # dist = min_dist(sax_seq,pattern,self.alphabet_size,1)
+                dist = pattern_distance(sax_seq,pattern)
             else:
                 dist = pattern_distance(sax_seq,pattern)
             
