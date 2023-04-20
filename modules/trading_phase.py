@@ -189,7 +189,7 @@ class TradingPhase:
     
     def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
-        gen = 50
+        gen = 100
         window_size=100
         word_size=20
         alphabet_size=10
