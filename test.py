@@ -54,7 +54,7 @@ def sax_test():
 def simple_pattern__test():
 
     word_size=15
-    alphabet_size=10
+    alphabet_size=20
 
     np.random.seed(1)
     # Set the duration and frequency of the sine wave
@@ -71,7 +71,7 @@ def simple_pattern__test():
 
     n = np.random.normal(scale=5, size=y.size)
 
-    y = 100 * np.sin(y) + n
+    y = 100 * y + n
 
     symbols,PAA=find_pattern(y,word_size,alphabet_size)
 
