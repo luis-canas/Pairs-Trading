@@ -191,8 +191,8 @@ class TradingPhase:
 
         gen = 50
         window_size=100
-        word_size=10
-        alphabet_size=3
+        word_size=20
+        alphabet_size=10
 
         algorithm = GA(pop_size=50,
                         crossover=TwoPointCrossover(prob=0.9),
@@ -205,18 +205,35 @@ class TradingPhase:
 
         results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
         
-        
-        in_position=False
         x=results.X
-        dist_buy = x[0]
-        dist_sell = x[1]
-        measure_type = np.round(x[2])
-        pattern = np.round(x[3:])
+        CHROMOSSOME_SIZE=1+word_size
+        ENTER_LONG=CHROMOSSOME_SIZE
+        EXIT_LONG=2*CHROMOSSOME_SIZE
+        ENTER_SHORT=3*CHROMOSSOME_SIZE
+        EXIT_SHORT=4*CHROMOSSOME_SIZE
+        
+        #extract chromossomes
+        long_genes=x[:ENTER_LONG]
+        dist_long,pattern_long=long_genes[0],np.round(long_genes[1:])
+
+        exit_long_genes=x[ENTER_LONG:EXIT_LONG]
+        dist_exit_long,pattern_exit_long=exit_long_genes[0],np.round(exit_long_genes[1:])
+
+        short_genes=x[EXIT_LONG:ENTER_SHORT]
+        dist_short,pattern_short=short_genes[0],np.round(short_genes[1:])
+
+        exit_short_genes=x[ENTER_SHORT:EXIT_SHORT]
+        dist_exit_short,pattern_exit_short=exit_short_genes[0],np.round(exit_short_genes[1:])
 
         i=spread_test.index[0]
         offset = spread_full.index.get_loc(i)
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
         stabilizing_threshold = 5
+
+        in_position = False
+        position=CLOSE_POSITION
+        l_dist=0
+        s_dist=0
 
         spread=spread_full.to_numpy()
 
@@ -225,24 +242,81 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
             
+         
             #window of current day plus previous window_size days - 1 
             window = spread[offset - (window_size-1) + day: (offset + 1) + day]
 
             sax_seq,_ = find_pattern(window, word_size, alphabet_size)
             
-            # Calculate the distance to the pattern
-            dist = pattern_distance(sax_seq,pattern)
-            
             # Apply the buy and sell rules
-            if not in_position and dist <= dist_buy:
+            if not in_position:
+
+                l_dist = pattern_distance(sax_seq,pattern_long)
+                s_dist = pattern_distance(sax_seq,pattern_short)
+
+                if l_dist<dist_long: # LONG SPREAD
+                    
+                    in_position,position = True,LONG_SPREAD
+
+                    trade_array[day]=LONG_SPREAD
                 
-                in_position = True
-                trade_array[day]=LONG_SPREAD
+                elif s_dist<dist_short: # SHORT SPREAD
+                    
+                    in_position,position = True,SHORT_SPREAD
 
-            elif in_position and dist >= dist_sell:
+                    trade_array[day]=SHORT_SPREAD
 
-                in_position = False
-                trade_array[day]=CLOSE_POSITION
+
+            elif in_position:
+
+                if position==LONG_SPREAD:
+                    l_dist = pattern_distance(sax_seq,pattern_exit_long)
+                elif position==SHORT_SPREAD:
+                    s_dist = pattern_distance(sax_seq,pattern_exit_short)
+
+                if (l_dist>dist_exit_long and position==LONG_SPREAD) or (s_dist>dist_exit_short and position==SHORT_SPREAD):
+
+                    in_position,position = False,CLOSE_POSITION
+
+                    trade_array[day]=CLOSE_POSITION
+        
+        # in_position=False
+        # x=results.X
+        # dist_buy = x[0]
+        # dist_sell = x[1]
+        # measure_type = np.round(x[2])
+        # pattern = np.round(x[3:])
+
+        # i=spread_test.index[0]
+        # offset = spread_full.index.get_loc(i)
+        # trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        # stabilizing_threshold = 5
+
+        # spread=spread_full.to_numpy()
+
+        # for day in range(len(spread_test)):
+
+        #     if day < stabilizing_threshold:
+        #         continue
+            
+        #     #window of current day plus previous window_size days - 1 
+        #     window = spread[offset - (window_size-1) + day: (offset + 1) + day]
+
+        #     sax_seq,_ = find_pattern(window, word_size, alphabet_size)
+            
+        #     # Calculate the distance to the pattern
+        #     dist = pattern_distance(sax_seq,pattern)
+            
+        #     # Apply the buy and sell rules
+        #     if not in_position and dist <= dist_buy:
+                
+        #         in_position = True
+        #         trade_array[day]=LONG_SPREAD
+
+        #     elif in_position and dist >= dist_sell:
+
+        #         in_position = False
+        #         trade_array[day]=CLOSE_POSITION
 
 
         return trade_array

@@ -179,8 +179,8 @@ class SaxObjectives(ElementwiseProblem):
         pattern_lb=[0]*MAX_PATTERN_SIZE
         pattern_ub=[alphabet_size-1]*MAX_PATTERN_SIZE
 
-        x1=np.repeat(np.concatenate((variables_lb, pattern_lb)),4)
-        xu=np.repeat(np.concatenate((variables_ub, pattern_ub)),4)
+        x1=np.tile(np.concatenate((variables_lb, pattern_lb)),4)
+        xu=np.tile(np.concatenate((variables_ub, pattern_ub)),4)
 
         super().__init__(n_var=4*CHROMOSSOME_SIZE, 
                          n_obj=1, 
@@ -191,17 +191,18 @@ class SaxObjectives(ElementwiseProblem):
       
     def _evaluate(self, x, out, *args, **kwargs):
         
+        #extract chromossomes
         long_genes=x[:self.ENTER_LONG]
-        dist_long,pattern_long=long_genes[0],long_genes[1:]
+        dist_long,pattern_long=long_genes[0],np.round(long_genes[1:])
 
         exit_long_genes=x[self.ENTER_LONG:self.EXIT_LONG]
-        dist_exit_long,pattern_exit_long=exit_long_genes[0],exit_long_genes[1:]
+        dist_exit_long,pattern_exit_long=exit_long_genes[0],np.round(exit_long_genes[1:])
 
         short_genes=x[self.EXIT_LONG:self.ENTER_SHORT]
-        dist_short,pattern_short=short_genes[0],short_genes[1:]
+        dist_short,pattern_short=short_genes[0],np.round(short_genes[1:])
 
         exit_short_genes=x[self.ENTER_SHORT:self.EXIT_SHORT]
-        dist_exit_short,pattern_exit_short=exit_short_genes[0],exit_short_genes[1:]
+        dist_exit_short,pattern_exit_short=exit_short_genes[0],np.round(exit_short_genes[1:])
 
         # Initialize variables for tracking trades and earnings
         in_position = False
@@ -209,6 +210,8 @@ class SaxObjectives(ElementwiseProblem):
         FIXED_VALUE = 1000
         stocks_in_hand = np.zeros(2)
         cash_in_hand=FIXED_VALUE
+        l_dist=0
+        s_dist=0
 
         # Slide a window along the time series and convert to SAX
         for i in range(len(self.spread) - self.window_size):
@@ -250,8 +253,10 @@ class SaxObjectives(ElementwiseProblem):
 
             elif in_position:
 
-                l_dist = pattern_distance(sax_seq,pattern_exit_long)
-                s_dist = pattern_distance(sax_seq,pattern_exit_short)
+                if position==LONG_SPREAD:
+                    l_dist = pattern_distance(sax_seq,pattern_exit_long)
+                elif position==SHORT_SPREAD:
+                    s_dist = pattern_distance(sax_seq,pattern_exit_short)
 
                 if (l_dist>dist_exit_long and position==LONG_SPREAD) or (s_dist>dist_exit_short and position==SHORT_SPREAD):
 
