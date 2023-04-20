@@ -195,7 +195,7 @@ class TradingPhase:
         alphabet_size=10
 
         algorithm = GA(pop_size=50,
-                        crossover=TwoPointCrossover(prob=0.9),
+                        crossover=TwoPointCrossover(prob=1),
                         mutation=PolynomialMutation(prob=0.1),
                         eliminate_duplicates=True)
         
