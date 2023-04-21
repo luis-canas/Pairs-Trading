@@ -189,14 +189,14 @@ class TradingPhase:
     
     def __sax(self,spread_train,spread_full,spread_test,c1_train,c2_train,c1_test,c2_test,verbose=True):
 
-        gen = 200
+        gen = 100
         window_size=100
         word_size=20
         alphabet_size=10
 
-        algorithm = GA(pop_size=50,
+        algorithm = GA(pop_size=100,
                         crossover=TwoPointCrossover(prob=1),
-                        mutation=PolynomialMutation(prob=0.5),
+                        mutation=PolynomialMutation(prob=0.1),
                         eliminate_duplicates=True)
         
      
