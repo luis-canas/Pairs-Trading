@@ -192,9 +192,9 @@ class TradingPhase:
         gen = 100
         window_size=100
         word_size=20
-        alphabet_size=10
+        alphabet_size=20
 
-        algorithm = GA(pop_size=100,
+        algorithm = GA(pop_size=50,
                         crossover=TwoPointCrossover(prob=1),
                         mutation=PolynomialMutation(prob=0.1),
                         eliminate_duplicates=True)
