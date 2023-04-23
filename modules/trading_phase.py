@@ -6,7 +6,7 @@ import pandas as pd
 
 from pymoo.algorithms.soo.nonconvex.ga import GA
 
-from pymoo.operators.crossover.pntx import TwoPointCrossover
+from pymoo.operators.crossover.pntx import TwoPointCrossover,PointCrossover
 from pymoo.operators.mutation.pm import PolynomialMutation
 
 from pymoo.optimize import minimize
@@ -195,7 +195,7 @@ class TradingPhase:
         alphabet_size=20
 
         algorithm = GA(pop_size=50,
-                        crossover=TwoPointCrossover(prob=1),
+                        crossover=PointCrossover(prob=1, n_points=8),
                         mutation=PolynomialMutation(prob=0.1),
                         eliminate_duplicates=True)
         
