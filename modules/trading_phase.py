@@ -192,7 +192,7 @@ class TradingPhase:
         gen = 100
         window_size=100
         word_size=20
-        alphabet_size=20
+        alphabet_size=10
 
         algorithm = GA(pop_size=50,
                         crossover=TwoPointCrossover(prob=1),
