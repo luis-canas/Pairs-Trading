@@ -107,7 +107,7 @@ class PairFormation:
         signal=np.asfarray(signal)
         return True if adfuller(signal)[1] < threshold else False  
 
-    def __cointegrated_pairs(self, pvalue_threshold = 0.05,hurst_threshold = 0.5,verbose=False,plot=False):
+    def __cointegrated_pairs(self, pvalue_threshold = 0.025,hurst_threshold = 0.5,verbose=False,plot=False):
 
         data = self.__data
         tickers = self.__tickers
