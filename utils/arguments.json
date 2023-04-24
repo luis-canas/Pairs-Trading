@@ -17,5 +17,16 @@
         ],
         "min_elements": 1,
         "max_elements": 1
+    },
+    "TH": {
+        "entry": 3,
+        "close": 1
+    },
+    "SAX": {
+        "gen": 100,
+        "pop": 50,
+        "window_size": 100,
+        "word_size": 20,
+        "alphabet_size": 10
     }
 }

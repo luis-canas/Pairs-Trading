@@ -6,14 +6,15 @@ import argparse
 import statsmodels.api as sm
 import random
 from os import makedirs
-from os.path import isfile,exists
+from os.path import isfile, exists
 import yfinance as yf
 import pickle
 import json
 
-file_screener='screeners/'
-file_input='results/'
-file_output='results/'
+file_screener = 'screeners/'
+file_input = 'results/'
+file_output = 'results/'
+
 
 def save_pickle(item):
 
@@ -21,27 +22,31 @@ def save_pickle(item):
     if not isExist:
         makedirs(file_output)
 
-    name=item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_'+str(item.months_forming)+'_'+str(item.months_trading)+'_'+item.pairs_alg+'_'+item.trading_alg
+    name = item.index+'_'+item.sector+'_'+item.start_date+'_'+item.end_date+'_' + \
+        str(item.months_forming)+'_'+str(item.months_trading) + \
+        '_'+item.pairs_alg+'_'+item.trading_alg
 
     with open(file_output+name+'.pkl', 'wb') as output:
         pickle.dump(item, output, pickle.HIGHEST_PROTOCOL)
 
-def open_pickle(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
 
+def open_pickle(pairs_alg, trading_alg, index, sector, start_date, end_date, months_trading, months_forming):
 
-    name=index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
+    name = index+'_'+sector+'_'+date_string(start_date)+'_'+date_string(end_date)+'_'+str(
+        months_forming)+'_'+str(months_trading)+'_'+pairs_alg+'_'+trading_alg
 
     isExist = exists(file_output+name+'.pkl')
 
     if not isExist:
-        print('Portfolio ',name,' does not exist!')
-        
+        print('Portfolio ', name, ' does not exist!')
+
         return
     else:
         with open(file_output+name+'.pkl', 'rb') as input:
             portfolio = pickle.load(input)
 
         return portfolio
+
 
 def study_results(res, objectives, n_gen):
     X, F = res.opt.get("X", "F")
@@ -70,7 +75,8 @@ def study_results(res, objectives, n_gen):
         hist_F.append(opt.get("F")[feas])
 
     k = np.where(np.array(hist_cv) <= 0.0)[0].min()
-    print(f"At least one feasible solution in Generation {k} after {n_evals[k]} evaluations.")
+    print(
+        f"At least one feasible solution in Generation {k} after {n_evals[k]} evaluations.")
     vals = hist_cv_avg
     plt.figure(figsize=(7, 5))
     plt.plot(n_evals, vals, color='black', lw=0.7, label="Avg. CV of Pop")
@@ -119,7 +125,8 @@ def study_results(res, objectives, n_gen):
 
     if len(objectives) == 2:
         plt.figure(figsize=(7, 5))
-        plt.scatter(F[:, 0], F[:, 1], s=30, facecolors='none', edgecolors='blue')
+        plt.scatter(F[:, 0], F[:, 1], s=30,
+                    facecolors='none', edgecolors='blue')
         plt.title("Objective Space")
         plt.xlabel(objectives[0])
         plt.ylabel(objectives[1])
@@ -127,7 +134,8 @@ def study_results(res, objectives, n_gen):
     elif len(objectives) == 4:  # plottar 3 eixos é o melhor que se pode fazer
         fig = plt.figure(figsize=(10, 8))
         ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(F[:, 2], F[:, 1], F[:, 3], zdir='z', s=30, c=None, depthshade=True)
+        ax.scatter(F[:, 2], F[:, 1], F[:, 3], zdir='z',
+                   s=30, c=None, depthshade=True)
         ax.set_xlabel(objectives[2])
         ax.set_ylabel(objectives[1])
         ax.set_zlabel(objectives[3])
@@ -137,7 +145,8 @@ def study_results(res, objectives, n_gen):
 
 def results_to_tickers(res, tickers):
 
-    selected_stocks = [[] for _ in range(len(res.X) * 2)]  # two components per pair
+    selected_stocks = [[]
+                       for _ in range(len(res.X) * 2)]  # two components per pair
 
     counter = 0
 
@@ -147,37 +156,42 @@ def results_to_tickers(res, tickers):
                 if i < len(result) // 2:
                     selected_stocks[counter].append(tickers[i])
                 else:
-                    selected_stocks[counter + 1].append(tickers[i - (len(result) // 2)])
+                    selected_stocks[counter +
+                                    1].append(tickers[i - (len(result) // 2)])
 
         counter += 2
 
-    pairs = [[selected_stocks[i], selected_stocks[i + 1]] for i in range(0, len(selected_stocks), 2)]
+    pairs = [[selected_stocks[i], selected_stocks[i + 1]]
+             for i in range(0, len(selected_stocks), 2)]
 
     return pairs
 
-def dataframe_interval(start_date, end_date,data):
 
+def dataframe_interval(start_date, end_date, data):
 
     mask = (data.index > start_date) & (data.index <= end_date)
 
     return data.loc[mask]
 
+
 def date_string(date):
-    
+
     return datetime(*date).strftime("%Y-%m-%d")
 
-def date_change(date,timeframe):
-    
-    year,month,day=date[0],date[1],date[2]
+
+def date_change(date, timeframe):
+
+    year, month, day = date[0], date[1], date[2]
 
     year = year + (month + timeframe - 1) // 12
     month = (month + timeframe - 1) % 12 + 1
-    
-    newdate=(year,month,day)
-    
+
+    newdate = (year, month, day)
+
     return newdate
 
-def coint_spread(c1,c2):
+
+def coint_spread(c1, c2):
     S1 = np.asarray(c1)
     S2 = np.asarray(c2)
     S1_c = sm.add_constant(S1)
@@ -190,9 +204,10 @@ def coint_spread(c1,c2):
 
     return b, coint_spread
 
+
 def compute_zscore(full_spread, test_spread):
 
-    i=test_spread.index[0]
+    i = test_spread.index[0]
     offset = full_spread.index.get_loc(i)
 
     norm_spread = np.zeros(len(test_spread))
@@ -200,17 +215,16 @@ def compute_zscore(full_spread, test_spread):
     mean = np.zeros(len(test_spread))
     std = np.zeros(len(test_spread))
     t_spread = np.zeros(len(test_spread))
-    
 
     for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[ day: day + (offset + 1)]
+        spread_to_consider = full_spread[day: day + (offset + 1)]
 
-        norm_spread[day] = (daily_value - spread_to_consider.mean()) / np.std(spread_to_consider) 
+        norm_spread[day] = (
+            daily_value - spread_to_consider.mean()) / np.std(spread_to_consider)
 
         mean[day] = spread_to_consider.mean()
         std[day] = spread_to_consider.std()
         t_spread[day] = daily_value
-   
 
     return norm_spread, mean, std, t_spread
 
@@ -218,35 +232,39 @@ def compute_zscore(full_spread, test_spread):
 def price_of_entire_component(series, component):
 
     if not any(component):
-        return series.iloc[:, random.randint(0, 10)]  # just to return something, this subject will be discarded for not having enough stocks in the component
+        # just to return something, this subject will be discarded for not having enough stocks in the component
+        return series.iloc[:, random.randint(0, 10)]
 
-   
-    combined_series = series.iloc[:,component].sum(axis=1)
+    combined_series = series.iloc[:, component].sum(axis=1)
 
     return combined_series
 
-def get_data(index,sector,start,end):
+
+def get_data(index, sector, start, end):
 
     isExist = exists(file_input)
     if not isExist:
         makedirs(file_input)
 
     if not isfile(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
-        df = pd.read_csv(file_screener+f'{index}_screener.csv',encoding='latin1')
+        df = pd.read_csv(
+            file_screener+f'{index}_screener.csv', encoding='latin1')
 
-        mask=df['Sector'].str.contains(sector)
-        mask=mask.where(pd.notnull(mask), False).tolist()
-        tickers=df['Symbol']
-        tickers=tickers[mask].tolist()
+        mask = df['Sector'].str.contains(sector)
+        mask = mask.where(pd.notnull(mask), False).tolist()
+        tickers = df['Symbol']
+        tickers = tickers[mask].tolist()
 
-        data=yf.download(tickers,start=datetime(*start),end=datetime(*end))['Close']
+        data = yf.download(tickers, start=datetime(
+            *start), end=datetime(*end))['Close']
 
-        data.to_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
+        data.to_csv(
+            file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
     else:
-        data = pd.read_csv(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv',index_col='Date')
+        data = pd.read_csv(
+            file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv', index_col='Date')
 
     return data
-
 
     # start = datetime(*start)
     # end = datetime(*end)
@@ -255,13 +273,16 @@ def get_data(index,sector,start,end):
 
     # return yf.download(tickers, start, end)['Close']
 
+
 def tuple_int(string):
     try:
         x, y, z = map(int, string.split(","))
-        return (x,y,z)
+        return (x, y, z)
     except ValueError:
-        raise argparse.ArgumentTypeError("Invalid input format. Please provide comma separated integers.")
- 
+        raise argparse.ArgumentTypeError(
+            "Invalid input format. Please provide comma separated integers.")
+
+
 def load_args(model):
 
     with open("utils/arguments.json", "r") as f:
