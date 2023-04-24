@@ -285,7 +285,7 @@ def tuple_int(string):
 
 def load_args(model):
 
-    with open("utils/arguments.json", "r") as f:
+    with open("modules/arguments.json", "r") as f:
         data = json.load(f)
 
     # Extract the args from the dictionary
