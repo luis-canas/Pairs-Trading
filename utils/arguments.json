@@ -1,0 +1,21 @@
+{
+    "DIST": {
+        "pair_number": 6
+    },
+    "COINT": {
+        "pvalue_threshold": 0.01,
+        "hurst_threshold": 0.5
+    },
+    "NSGA": {
+        "gen": 80,
+        "pop": 50,
+        "objective_functions": [
+            "ADF",
+            "spread_volatility",
+            "NZC",
+            "half_life"
+        ],
+        "min_elements": 1,
+        "max_elements": 1
+    }
+}

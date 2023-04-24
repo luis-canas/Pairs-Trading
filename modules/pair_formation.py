@@ -19,7 +19,7 @@ from pymoo.optimize import minimize
 from pymoo.util.ref_dirs import get_reference_directions
 
 from utils.objectives import PairFormationObjectives
-from utils.utils import date_string,dataframe_interval,study_results,results_to_tickers
+from utils.utils import date_string,dataframe_interval,study_results,results_to_tickers,load_args
 
 
 
@@ -48,15 +48,20 @@ class PairFormation:
         self.__tickers = self.__data.keys()
 
 
-    def __nsga2(self,verbose,plot):
+    def __nsga2(self,gen=80,pop=50,objective_functions = ['ADF', 'spread_volatility', 'NZC', 'half_life'], min_elements = 1, max_elements = 1,verbose=True,plot=False,**kwargs):
 
+        
+        gen = kwargs.get('gen', gen)
+        pop = kwargs.get('pop', pop)
+        objective_functions = kwargs.get('objective_functions', objective_functions)
+        min_elements = kwargs.get('min_elements', min_elements)
+        max_elements = kwargs.get('max_elements', max_elements)
+        verbose = kwargs.get('verbose', verbose)
+        plot = kwargs.get('plot', plot)
 
-        gen = 80
-        objective_functions = ['ADF', 'spread_volatility', 'NZC', 'half_life']
+        ref_dirs = get_reference_directions("energy", len(objective_functions), pop, seed=1)
 
-        ref_dirs = get_reference_directions("energy", len(objective_functions), 50, seed=1)
-
-        algorithm = NSGA2(pop_size=50,
+        algorithm = NSGA2(pop_size=pop,
                         sampling=BinaryRandomSampling(),
                         crossover=TwoPointCrossover(),
                         mutation=BitflipMutation(),
@@ -64,7 +69,7 @@ class PairFormation:
                         ref_dirs=ref_dirs)
 
 
-        pairs_objectives = PairFormationObjectives(self.__data, self.__tickers, objective_functions, min_elements = 1, max_elements = 1)
+        pairs_objectives = PairFormationObjectives(self.__data, self.__tickers, objective_functions, min_elements , max_elements )
 
         results = minimize(pairs_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=verbose)
         
@@ -75,7 +80,9 @@ class PairFormation:
 
 
 
-    def __distance_pairs(self,pair_number =  1,verbose=False,plot=False):
+    def __distance_pairs(self,pair_number =  5,**kwargs):
+
+        pair_number = kwargs.get('pair_number', pair_number)
 
         data = self.__data
         tickers = self.__tickers
@@ -107,8 +114,12 @@ class PairFormation:
         signal=np.asfarray(signal)
         return True if adfuller(signal)[1] < threshold else False  
 
-    def __cointegrated_pairs(self, pvalue_threshold = 0.01,hurst_threshold = 0.5,verbose=False,plot=False):
+    def __cointegrated_pairs(self, pvalue_threshold = 0.01,hurst_threshold = 0.5,plot=False, **kwargs):
 
+        pvalue_threshold = kwargs.get('pvalue_threshold', pvalue_threshold)
+        hurst_threshold = kwargs.get('hurst_threshold', hurst_threshold)
+        plot = kwargs.get('plot', plot)
+        
         data = self.__data
         tickers = self.__tickers
         N = len(tickers)
@@ -156,10 +167,13 @@ class PairFormation:
 
         return True if pvalue <= pvalue_threshold and hurst <= hurst_threshold else False
 
-    def find_pairs(self,model,verbose=False,plot=False):
+    def find_pairs(self,model):
 
         function = {'COINT':self.__cointegrated_pairs,'DIST':self.__distance_pairs,'NSGA':self.__nsga2}
-        function[model](verbose=verbose,plot=plot)
+
+        args=load_args(model)
+
+        function[model](**args)
 
         info={"model": model,
                 "formation_start": self.__start,

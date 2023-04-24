@@ -9,6 +9,7 @@ from os import makedirs
 from os.path import isfile,exists
 import yfinance as yf
 import pickle
+import json
 
 file_screener='screeners/'
 file_input='results/'
@@ -260,3 +261,11 @@ def tuple_int(string):
         return (x,y,z)
     except ValueError:
         raise argparse.ArgumentTypeError("Invalid input format. Please provide comma separated integers.")
+ 
+def load_args(model):
+
+    with open("utils/arguments.json", "r") as f:
+        data = json.load(f)
+
+    # Extract the args from the dictionary
+    return data[model]

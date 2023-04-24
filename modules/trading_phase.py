@@ -205,7 +205,7 @@ class TradingPhase:
 
         results = minimize(sax_objectives, algorithm, ("n_gen", gen), seed=1, save_history=True, verbose=True)
         
-        # Define optimal solution and chromossomes intervals
+        # Define chromossomes intervals
         x=results.X
         CHROMOSSOME_SIZE=1+word_size
         ENTER_LONG=CHROMOSSOME_SIZE
