@@ -157,7 +157,7 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
 
-    def __threshold(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test, entry=2, close=0, **kwargs):
+    def __threshold(self, spread_full, spread_test,entry=2, close=0, **kwargs):
 
         # norm spread
         spread, _, _, _ = compute_zscore(spread_full, spread_test)
@@ -198,7 +198,7 @@ class TradingPhase:
 
         return trade_array
 
-    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
+    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train,
               gen=100, pop=50, window_size=100, word_size=20, alphabet_size=10, verbose=True, **kwargs):
 
         algorithm = GA(pop_size=pop,
