@@ -14,6 +14,7 @@ import json
 file_screener = 'screeners/'
 file_input = 'results/'
 file_output = 'results/'
+file_args="modules/args.json"
 
 
 def save_pickle(item):
@@ -285,8 +286,25 @@ def tuple_int(string):
 
 def load_args(model):
 
-    with open("modules/arguments.json", "r") as f:
+    with open(file_args, "r") as f:
         data = json.load(f)
 
     # Extract the args from the dictionary
     return data[model]
+
+def change_args(model,parameter,newvalue):
+
+    # Open JSON file in read mode
+    with open(file_args, 'r') as f:
+        data = json.load(f)
+
+    # Modify the value of a key in the dictionary
+    try:
+        data[model][parameter] = newvalue
+    except KeyError:
+        print("Model/parameter does not exist")
+
+    # Open the same file in write mode
+    with open(file_args, 'w') as f:
+        # Write the modified dictionary to the file
+        json.dump(data, f,indent=4)

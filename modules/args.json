@@ -1,6 +1,6 @@
 {
     "DIST": {
-        "pair_number": 6
+        "pair_number": 2
     },
     "COINT": {
         "pvalue_threshold": 0.05,

@@ -2,7 +2,7 @@
 from modules.pair_formation import PairFormation
 from modules.trading_phase import TradingPhase
 from modules.portfolio import Portfolio
-from utils.utils import date_change, get_data, save_pickle, tuple_int, argparse
+from utils.utils import date_change, get_data, save_pickle, tuple_int, argparse,change_args
 
 
 def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_trading, months_forming):
