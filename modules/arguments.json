@@ -3,7 +3,7 @@
         "pair_number": 6
     },
     "COINT": {
-        "pvalue_threshold": 0.01,
+        "pvalue_threshold": 0.05,
         "hurst_threshold": 0.5
     },
     "NSGA": {

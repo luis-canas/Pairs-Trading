@@ -7,44 +7,61 @@ from utils.utils import date_change, get_data, save_pickle, tuple_int, argparse
 
 def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_trading, months_forming):
 
+    # Calculate initial date variables based on arguments
     train_start = start_date
     train_end = date_change(train_start, months_forming)
     test_start = train_end
     test_end = date_change(test_start, months_trading)
-    years_simulated = (end_date[0] - test_end[0])+1
 
+    # Calculate the number of months between start_date and end_date
+    start_year, start_month, start_day = start_date
+    end_year, end_month, end_day = end_date
+    num_months = (end_year - start_year) * 12 + end_month - start_month
+
+    # Calculate the number of simulations
+    num_simulations = num_months // (months_trading + months_forming)
+
+    # Get historical data and init modules
     data = get_data(index, sector, start_date, end_date)
     pair_formation = PairFormation(data)
     trading_phase = TradingPhase(data)
     portfolio = Portfolio(data, index, sector, start_date, end_date,
                           months_trading, months_forming, pairs_alg, trading_alg)
 
-    for _ in range(years_simulated):
+    for _ in range(num_simulations):
 
+        # Set training interval and get pairs
         pair_formation.set_date(train_start, train_end)
         selected_pairs = pair_formation.find_pairs(pairs_alg)
 
+        # Set training/test interval and pairs
+        # Trade pairs
         trading_phase.set_pairs(selected_pairs["pairs"])
         trading_phase.set_dates(train_start, train_end, test_start, test_end)
         performance = trading_phase.run_simulation(trading_alg)
 
+        # Save pairs and performance dictionaries for current simulation
         portfolio.report(selected_pairs, performance)
 
+        # Calculate next date variables based on arguments
         train_start = date_change(train_start, months_trading)
         train_end = date_change(train_end, months_trading)
         test_start = date_change(test_start, months_trading)
         test_end = date_change(test_end, months_trading)
 
+    # Evaluate portfolio after all simulations
     portfolio.evaluate()
 
+    # Save portfolio to .pkl
     save_pickle(portfolio)
 
 
 if __name__ == "__main__":
 
+    # Get arguments from command line
+
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
     parser.add_argument('--index', type=str, default='s&p500')
     parser.add_argument('--sector', type=str, default='Real Estate')
     parser.add_argument('--start_date', type=tuple_int, default=(2015, 1, 1))
@@ -53,7 +70,6 @@ if __name__ == "__main__":
     parser.add_argument('--months_forming', type=int, default=12)
     parser.add_argument('--pairs_alg', type=str, default='DIST')
     parser.add_argument('--trading_alg', type=str, default='TH')
-
     args = parser.parse_args()
 
     main(args.pairs_alg, args.trading_alg, args.index, args.sector,

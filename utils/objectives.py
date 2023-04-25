@@ -163,28 +163,34 @@ class SaxObjectives(ElementwiseProblem):
 
     def __init__(self, spread, c1, c2, window_size, word_size, alphabet_size):
 
+        # spread and components price series
         self.spread = spread
         self.c1 = c1
         self.c2 = c2
+
+        # sax parameters
         self.window_size = window_size
         self.word_size = word_size
         self.alphabet_size = alphabet_size
 
-        MAX_WINDOW_SIZE = window_size
-        MAX_PATTERN_SIZE = word_size
-        CHROMOSSOME_SIZE = 1+MAX_PATTERN_SIZE
+        # Chromossome size: pattern_distance for decision and pattern of decision
+        CHROMOSSOME_SIZE = 1+word_size
 
+        # Chromossome for each decision (4 strategies)
         self.ENTER_LONG = CHROMOSSOME_SIZE
         self.EXIT_LONG = 2*CHROMOSSOME_SIZE
         self.ENTER_SHORT = 3*CHROMOSSOME_SIZE
         self.EXIT_SHORT = 4*CHROMOSSOME_SIZE
 
+        # lower bound and upper bound for pattern_distances
         variables_lb = [0]
-        variables_ub = [50]
+        variables_ub = [100]
 
-        pattern_lb = [0]*MAX_PATTERN_SIZE
-        pattern_ub = [alphabet_size-1]*MAX_PATTERN_SIZE
+        # lower bound and upper bound for patterns
+        pattern_lb = [0]*word_size
+        pattern_ub = [alphabet_size-1]*word_size
 
+        # join bounds
         x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
         xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
 
@@ -280,92 +286,3 @@ class SaxObjectives(ElementwiseProblem):
 
         # Set the fitness value to the total earnings
         out["F"] = -portfolio_value
-
-
-# class SaxObjectives(ElementwiseProblem):
-
-#     def __init__(self,spread,c1,c2,window_size, word_size,alphabet_size):
-
-#         self.spread=spread
-#         self.c1=c1
-#         self.c2=c2
-#         self.window_size = window_size
-#         self.word_size = word_size
-#         self.alphabet_size = alphabet_size
-
-#         variables_lb=[0, 0, 0]
-#         variables_ub=[50, 50, 1]
-
-#         pattern_lb=[0]*word_size
-#         pattern_ub=[alphabet_size-1]*word_size
-
-#         x1=np.concatenate((variables_lb, pattern_lb))
-#         xu=np.concatenate((variables_ub, pattern_ub))
-
-#         super().__init__(n_var=word_size+3,
-#                          n_obj=1,
-#                          n_constr=0,
-#                          xl=x1,
-#                          xu=xu,
-#                          vtype=float)
-
-#     def _evaluate(self, x, out, *args, **kwargs):
-
-#         # Extract parameters from the chromosome
-#         dist_buy = x[0]
-#         dist_sell = x[1]
-#         measure_type = np.round(x[2])
-#         pattern = np.round(x[3:])
-
-#         # Initialize variables for tracking trades and earnings
-#         in_position = False
-#         FIXED_VALUE = 1000
-#         stocks_in_hand = np.zeros(2)
-#         cash_in_hand=FIXED_VALUE
-
-#         # Slide a window along the time series and convert to SAX
-#         for i in range(len(self.spread) - self.window_size):
-
-#             day=i+self.window_size
-#             window = self.spread[i:day]
-#             sax_seq,_ = find_pattern(window, self.word_size, self.alphabet_size)
-
-#             # Calculate the distance to the pattern
-#             if measure_type == 0:
-#                 # dist = min_dist(sax_seq,pattern,self.alphabet_size,1)
-#                 dist = pattern_distance(sax_seq,pattern)
-#             else:
-#                 dist = pattern_distance(sax_seq,pattern)
-
-#             # Apply the buy and sell rules
-#             if not in_position and dist <= dist_buy:
-
-#                 in_position = True
-
-#                 value_to_buy = min(FIXED_VALUE, cash_in_hand)
-#                 # long c1
-#                 cash_in_hand+= -value_to_buy
-#                 stocks_in_hand[0] = value_to_buy / self.c1[day]
-#                 # short c2
-#                 cash_in_hand+= value_to_buy
-#                 stocks_in_hand[1] = -value_to_buy / self.c2[day]
-
-
-#             elif in_position and dist >= dist_sell:
-
-#                 in_position = False
-#                 sale_value = stocks_in_hand[0] * self.c1[day] + stocks_in_hand[1] * self.c2[day]
-#                 cash_in_hand += sale_value
-#                 stocks_in_hand[0] = stocks_in_hand[1] = 0  # both positions were closed
-
-#             # elif in_position and i % days_sell == 0:
-
-#             #     in_position = False
-#             #     sale_value = stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
-#             #     cash_in_hand += sale_value
-#             #     stocks_in_hand[0] = stocks_in_hand[1] = 0  # both positions were closed
-
-#         portfolio_value = cash_in_hand + stocks_in_hand[0] * self.c1[day] + stocks_in_hand[1] * self.c2[day]
-
-#         # Set the fitness value to the total earnings
-#         out["F"] = -portfolio_value

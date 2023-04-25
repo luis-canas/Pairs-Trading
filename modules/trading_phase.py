@@ -6,19 +6,19 @@ import pandas as pd
 
 from pymoo.algorithms.soo.nonconvex.ga import GA
 
-from pymoo.operators.crossover.pntx import TwoPointCrossover, PointCrossover
+from pymoo.operators.crossover.pntx import PointCrossover
 from pymoo.operators.mutation.pm import PolynomialMutation
 
 from pymoo.optimize import minimize
 
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args
-from utils.symbolic_aggregate_approximation import timeseries2symbol, min_dist, pattern_distance, find_pattern
+from utils.symbolic_aggregate_approximation import pattern_distance, find_pattern
 
 from utils.objectives import SaxObjectives
 
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
-CLOSE_INACTIVITY = 126
+CLOSE_INACTIVITY = 252
 
 LONG_SPREAD = 1
 SHORT_SPREAD = -1
@@ -27,37 +27,51 @@ CLOSE_POSITION = 0
 
 class TradingPhase:
 
+    """
+    A class used to represent TradingPhase models
+
+    """
+    
     def __init__(self, data):
 
-        self.__all_pairs = []
-        self.__data = data
-        self.__tickers = data.keys()
+        self.__all_pairs = []  # List of pairs
+        self.__data = data  # Price series
+        self.__tickers = data.keys()  # Data tickers
 
     def set_pairs(self, pairs):
 
-        self.__all_pairs = pairs
+        self.__all_pairs = pairs  # Set simulation pairs
 
     def set_dates(self, train_start, train_end, test_start, test_end):
 
+        # Set dates for train/test
         self.__train_start = date_string(train_start)
         self.__train_end = date_string(train_end)
         self.__test_start = date_string(test_start)
         self.__test_end = date_string(test_end)
 
     def __force_close(self, decision_array):
+
         count = 0
-        for day in range(1, len(decision_array)):
-            if count >= CLOSE_INACTIVITY:
+        for day in range(1, len(decision_array)):  # Iterate trade_array
+
+            if count >= CLOSE_INACTIVITY:  # Count reached non convergence threshold
                 day_aux = day
+
+                # Close all position until new decision is found in trade_array
                 while decision_array[day_aux] == decision_array[day - 1]:
                     decision_array[day_aux] = CLOSE_POSITION
-                    day_aux += 1
-                    if day_aux == len(decision_array):
+                    day_aux += 1  # next day
+
+                    if day_aux == len(decision_array):  # end of trade array
                         break
-            if decision_array[day] == decision_array[day-1]:
+            if decision_array[day] == decision_array[day-1]:  # same decision is found
+
+                # Long/short decision, continue count
                 if decision_array[day] == LONG_SPREAD or decision_array[day] == SHORT_SPREAD:
                     count += 1
-            else:
+
+            else:  # reset counter
                 count = 0
 
         return decision_array
@@ -157,19 +171,19 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
 
-    def __threshold(self, spread_full, spread_test,entry=2, close=0, **kwargs):
+    def __threshold(self, spread_full, spread_test, entry=2, close=0, **kwargs):
 
-        # norm spread
+        # Norm spread
         spread, _, _, _ = compute_zscore(spread_full, spread_test)
 
+        # Get entry/exit points
         longs_entry = spread < -entry
         longs_exit = spread > -close
-
         shorts_entry = spread > entry
         shorts_exit = spread < close
 
+        # In the first 5 days of trading no trades will be made to stabilize the spread
         stabilizing_threshold = 5
-        # in the first 5 days of trading no trades will be made to stabilize the spread
         longs_entry[:stabilizing_threshold] = False
         longs_exit[:stabilizing_threshold] = False
         shorts_entry[:stabilizing_threshold] = False
@@ -201,14 +215,17 @@ class TradingPhase:
     def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train,
               gen=100, pop=50, window_size=100, word_size=20, alphabet_size=10, verbose=True, **kwargs):
 
+        # Build genetic algorithm
         algorithm = GA(pop_size=pop,
                        crossover=PointCrossover(prob=1, n_points=8),
                        mutation=PolynomialMutation(prob=0.1),
                        eliminate_duplicates=True)
 
+        # Get objective function
         sax_objectives = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
         ), c2=c2_train.to_numpy(), window_size=window_size, word_size=word_size, alphabet_size=alphabet_size)
 
+        # Optimize patterns
         results = minimize(sax_objectives, algorithm, ("n_gen", gen),
                            seed=1, save_history=True, verbose=verbose)
 
@@ -295,95 +312,106 @@ class TradingPhase:
 
                     trade_array[day] = CLOSE_POSITION
 
+        # completes the array by propagating the last valid observation
+        trade_array = trade_array.fillna(method='ffill')
+
         return trade_array
 
     def run_simulation(self, model):
 
+        # Select function
         function = {'TH': self.__threshold, 'SAX': self.__sax}
 
+        # Select function arguments
         args = load_args(model)
 
+        # Get price series / data tickers / pairs identified
         data = self.__data
-
         tickers = self.__tickers
         all_pairs = self.__all_pairs
 
+        # Initialize trade variables
         n_pairs = len(all_pairs)
         self.__n_non_convergent_pairs = 0
         self.__profit = 0
         self.__loss = 0
         total_trades = 0
 
-        try:
+        try:  # Fixed_value is based on last simulation portfolio value
             FIXED_VALUE = self.__total_portfolio_value[-1] / n_pairs
-        except:
+        except:  # First simulation, fixed_value is based on default value
             FIXED_VALUE = PORTFOLIO_INIT / n_pairs
 
+        # Initialize portfolio variables
         self.__total_portfolio_value = []
         self.__total_cash = []
 
-        for component1, component2 in all_pairs:
+        for component1, component2 in all_pairs:  # get components for each pair
 
+            # Extract tickers in each component
             component1 = [(ticker in component1) for ticker in tickers]
             component2 = [(ticker in component2) for ticker in tickers]
 
+            # Get one series for each component
             c1 = price_of_entire_component(data, component1)
             c2 = price_of_entire_component(data, component2)
 
+            # Get series between train/test/full date intervals
             c1_train = dataframe_interval(
                 self.__train_start, self.__train_end, c1)
             c2_train = dataframe_interval(
                 self.__train_start, self.__train_end, c2)
-
             c1_test = dataframe_interval(
                 self.__test_start, self.__test_end, c1)
             c2_test = dataframe_interval(
                 self.__test_start, self.__test_end, c2)
-
             c1_full = dataframe_interval(
                 self.__train_start, self.__test_end, c1)
             c2_full = dataframe_interval(
                 self.__train_start, self.__test_end, c2)
 
+            # Get beta coefficient and spread for train/test/full
             beta, spread_train = coint_spread(c1_train, c2_train)
-
             spread_full = c1_full-beta*c2_full
             spread_test = c1_test-beta*c2_test
 
+            # Apply trading model and get trading decision array
             trade_array = function[model](spread_train=spread_train, spread_full=spread_full,
                                           spread_test=spread_test, c1_train=c1_train, c2_train=c2_train, c1_test=c1_test, c2_test=c2_test, **args)
 
+            # Force close non convergent positions
             trade_array = self.__force_close(trade_array)
 
+            # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable = self.__trade_spread(
                 c1=c1_test, c2=c2_test, trade_array=trade_array, FIXED_VALUE=FIXED_VALUE)
 
+            # Evaluate pair performance
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
-
             if pair_performance > 100:
                 self.__profit += 1
             else:
                 self.__loss += 1
 
-            try:
+            try:  # Add portfolio variables
                 aux_pt_value += portfolio_value
                 aux_cash += cash
                 total_trades += n_trades
-            except:
+            except:  # First pair, init portfolio variables
                 aux_pt_value = portfolio_value
                 aux_cash = cash
                 total_trades = n_trades
 
-            # non convergent pairs
+            # non convergent pair
             if days_open[-2] > 0:
                 self.__n_non_convergent_pairs += 1
 
+        # Evaluate portfolio performance
         self.__total_portfolio_value += list(aux_pt_value)
-
         self.__total_cash += list(aux_cash)
-
         self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
 
+        # TradingPhase dictionary
         info = {
             "portfolio_start": self.__total_portfolio_value[0],
             "portfolio_end": self.__total_portfolio_value[-1],

@@ -25,21 +25,25 @@ from utils.utils import date_string, dataframe_interval, study_results, results_
 class PairFormation:
 
     """
-    A class used to represent trading Pairs
+    A class used to represent PairFormation models
 
     """
 
     def __init__(self, data):
 
-        self.__all_pairs = []
-        self.__entire_data = data.dropna(axis=1)
+        self.__all_pairs = []  # list of pairs
+        self.__entire_data = data.dropna(axis=1)  # complete price series
+        # price series (to be used for date intervals)
         self.__data = self.__entire_data
-        self.__tickers = data.keys()
+        self.__tickers = data.keys()  # data tickers
+        # start date of data (will be discarded for train start)
         self.__start = data.index[0]
+        # end date of data (will be discarded for train end)
         self.__end = data.index[-1]
 
     def set_date(self, start, end):
 
+        # Set tickers and dates for train
         self.__start = date_string(start)
         self.__end = date_string(end)
         self.__data = dataframe_interval(
@@ -51,6 +55,7 @@ class PairFormation:
         ref_dirs = get_reference_directions(
             "energy", len(objective_functions), pop, seed=1)
 
+        # Build NSGA2
         algorithm = NSGA2(pop_size=pop,
                           sampling=BinaryRandomSampling(),
                           crossover=TwoPointCrossover(),
@@ -58,25 +63,30 @@ class PairFormation:
                           eliminate_duplicates=True,
                           ref_dirs=ref_dirs)
 
+        # Get pair formation objectives - ['ADF', 'spread_volatility', 'NZC', 'half_life']
         pairs_objectives = PairFormationObjectives(
             self.__data, self.__tickers, objective_functions, min_elements, max_elements)
 
+        # Optimize function
         results = minimize(pairs_objectives, algorithm, ("n_gen", gen),
                            seed=1, save_history=True, verbose=verbose)
 
         if plot:
             study_results(results, objective_functions, gen)
 
+        # Extract pairs
         self.__all_pairs = results_to_tickers(results, self.__tickers)
 
     def __distance_pairs(self, pair_number=5, **kwargs):
 
+        # Initialize price series and tickers
         data = self.__data
         tickers = self.__tickers
         N = len(tickers)
 
         dic = {}
 
+        # for each combination of tickers in dataset calculate ssd and add to dict
         for i in range(N):
 
             signal1 = data[tickers[i]]
@@ -89,24 +99,23 @@ class PairFormation:
 
                 dic[tickers[i], tickers[j]] = ssd
 
+        # order dict by ssd and reduce to pair_number size
         top_pairs = list(
             dict(sorted(dic.items(), key=itemgetter(1))[:pair_number]).keys())
 
+        # create list for top pairs
         self.__all_pairs = [[[x], [y]] for x, y in top_pairs]
 
-    def __is_stationary(self, signal, threshold):
+    def __cointegrated_pairs(self, pvalue_threshold=0.05, hurst_threshold=0.5, **kwargs):
 
-        signal = np.asfarray(signal)
-        return True if adfuller(signal)[1] < threshold else False
-
-    def __cointegrated_pairs(self, pvalue_threshold=0.01, hurst_threshold=0.5, plot=False, **kwargs):
-
+        # Initialize price series and tickers
         data = self.__data
         tickers = self.__tickers
         N = len(tickers)
 
         pairs = []
 
+        # for each combination of tickers appends pairs if coint coef and hurst are below thresholds
         for i in range(N):
 
             signal1 = data[tickers[i]]
@@ -115,12 +124,12 @@ class PairFormation:
 
                 signal2 = data[tickers[j]]
 
-                if self.__Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold, plot):
+                if self.__Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold):
                     pairs.append([[tickers[i]], [tickers[j]]])
 
         self.__all_pairs = pairs
 
-    def __Engle_Granger(self, signal1, signal2, pvalue_threshold=0.05, hurst_threshold=0.5, plot=False):
+    def __Engle_Granger(self, signal1, signal2, pvalue_threshold=0.05, hurst_threshold=0.5):
 
         beta = OLS(signal2, signal1).fit().params[0]
         spread = signal2-beta*signal1
@@ -129,31 +138,21 @@ class PairFormation:
         pvalue = result[1]
         hurst, _, _ = hurst_exponent(spread)
 
-        if (plot and pvalue <= pvalue_threshold and hurst <= hurst_threshold):
-            plt.figure(figsize=(12, 6))
-            normalized_spread = zscore(spread)
-            normalized_spread.plot()
-            standard_devitation = np.std(normalized_spread)
-            plt.axhline(zscore(spread).mean())
-            plt.axhline(standard_devitation, color='green')
-            plt.axhline(-standard_devitation, color='green')
-            plt.axhline(2*standard_devitation, color='red')
-            plt.axhline(-2*standard_devitation, color='red')
-            plt.xlim(self.__start,
-                     self.__end)
-            plt.show()
-
         return True if pvalue <= pvalue_threshold and hurst <= hurst_threshold else False
 
     def find_pairs(self, model):
 
+        # Select function
         function = {'COINT': self.__cointegrated_pairs,
                     'DIST': self.__distance_pairs, 'NSGA': self.__nsga2}
 
+        # Select function arguments
         args = load_args(model)
 
+        # Apply pair formation model and find pairs
         function[model](**args)
 
+        # PairFormation dictionary
         info = {"model": model,
                 "formation_start": self.__start,
                 "formation_end":  self.__end,
