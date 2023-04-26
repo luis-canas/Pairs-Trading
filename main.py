@@ -2,7 +2,7 @@
 from modules.pair_formation import PairFormation
 from modules.trading_phase import TradingPhase
 from modules.portfolio import Portfolio
-from utils.utils import date_change, get_data, save_pickle, tuple_int, argparse,change_args
+from utils.utils import date_change, get_data, save_pickle, tuple_int, argparse
 
 
 def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_trading, months_forming):
@@ -19,7 +19,7 @@ def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_tra
     num_months = (end_year - start_year) * 12 + end_month - start_month
 
     # Calculate the number of simulations
-    num_simulations = num_months // (months_trading + months_forming)
+    num_simulations = (num_months - months_forming - months_trading) // months_trading + 1
 
     # Get historical data and init modules
     data = get_data(index, sector, start_date, end_date)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     parser.add_argument('--index', type=str, default='s&p500')
     parser.add_argument('--sector', type=str, default='Real Estate')
     parser.add_argument('--start_date', type=tuple_int, default=(2015, 1, 1))
-    parser.add_argument('--end_date', type=tuple_int, default=(2022, 1, 1))
+    parser.add_argument('--end_date', type=tuple_int, default=(2019, 1, 1))
     parser.add_argument('--months_trading', type=int, default=12)
     parser.add_argument('--months_forming', type=int, default=12)
     parser.add_argument('--pairs_alg', type=str, default='DIST')
