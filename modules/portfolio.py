@@ -1,6 +1,6 @@
 
 import pprint
-from utils.utils import date_string
+from utils.utils import date_string,max_drawdown
 
 
 class Portfolio:
@@ -32,9 +32,28 @@ class Portfolio:
         self.pair_info.append(pairs)
         self.portfolio_info.append(performance)
 
-    def evaluate(self, verbose=False):
+    def evaluate(self):
 
-        pass
+        total_portfolio_value=[]
+        total_cash=[]
+        self.evaluation={}
+        for simulation in self.portfolio_info:
+            total_portfolio_value+=simulation['portfolio_value']
+            total_cash+=simulation['cash']
+
+            roi = (simulation['portfolio_value'][-1]/(simulation['portfolio_value'][0])-1) * 100
+            mdd,_,_=max_drawdown(simulation['cash'])
+            self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]={}
+            self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]['roi']=roi
+            self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]['mdd']=mdd
+
+        roi = (total_portfolio_value[-1]/(total_portfolio_value[0])-1) * 100
+        mdd,_,_=max_drawdown(total_cash)
+
+        self.evaluation["total_roi"]=roi
+        self.evaluation["total_mdd"]=mdd
+
+
 
     def print_pairs(self, simul=-1):
 
@@ -59,3 +78,8 @@ class Portfolio:
         for simul in range(len(self.portfolio_info)):
             pprint.pprint(
                 [self.pair_info[simul], self.portfolio_info[simul]], depth=2, sort_dicts=False)
+    def performance(self):
+
+        # print metrics
+        pprint.pprint(
+            [self.evaluation], sort_dicts=False,width=50)

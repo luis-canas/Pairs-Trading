@@ -34,13 +34,14 @@ class TradingPhase:
     
     def __init__(self, data):
 
-        self.__all_pairs = []  # List of pairs
+        self.__pairs = []  # List of pairs
         self.__data = data  # Price series
         self.__tickers = data.keys()  # Data tickers
+        self.__INIT_VALUE=PORTFOLIO_INIT
 
     def set_pairs(self, pairs):
 
-        self.__all_pairs = pairs  # Set simulation pairs
+        self.__pairs = pairs  # Set simulation pairs
 
     def set_dates(self, train_start, train_end, test_start, test_end):
 
@@ -76,7 +77,7 @@ class TradingPhase:
 
         return decision_array
 
-    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE=0, commission=0.08,  market_impact=0.2, short_loan=1):
+    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,**kwargs):
 
         # Close all positions in the last day of the trading period whether they have converged or not
         trade_array.iloc[-1] = CLOSE_POSITION
@@ -259,6 +260,7 @@ class TradingPhase:
 
         # Init trade array and trade variables
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        trade_array[0]=CLOSE_POSITION
         stabilizing_threshold = 5
         in_position = False
         position = CLOSE_POSITION
@@ -328,25 +330,21 @@ class TradingPhase:
         # Get price series / data tickers / pairs identified
         data = self.__data
         tickers = self.__tickers
-        all_pairs = self.__all_pairs
+        pairs = self.__pairs
 
         # Initialize trade variables
-        n_pairs = len(all_pairs)
-        self.__n_non_convergent_pairs = 0
-        self.__profit = 0
-        self.__loss = 0
+        n_pairs = len(pairs)
+        n_non_convergent_pairs = 0
+        profit = 0
+        loss = 0
+        profit_loss_trade=np.zeros(2)
         total_trades = 0
 
-        try:  # Fixed_value is based on last simulation portfolio value
-            FIXED_VALUE = self.__total_portfolio_value[-1] / n_pairs
-        except:  # First simulation, fixed_value is based on default value
-            FIXED_VALUE = PORTFOLIO_INIT / n_pairs
+        # Fixed_value is based on last simulation portfolio value
+        FIXED_VALUE = self.__INIT_VALUE / n_pairs
 
-        # Initialize portfolio variables
-        self.__total_portfolio_value = []
-        self.__total_cash = []
 
-        for component1, component2 in all_pairs:  # get components for each pair
+        for component1, component2 in pairs:  # get components for each pair
 
             # Extract tickers in each component
             component1 = [(ticker in component1) for ticker in tickers]
@@ -355,7 +353,7 @@ class TradingPhase:
             # Get one series for each component
             c1 = price_of_entire_component(data, component1)
             c2 = price_of_entire_component(data, component2)
-
+    
             # Get series between train/test/full date intervals
             c1_train = dataframe_interval(
                 self.__train_start, self.__train_end, c1)
@@ -370,6 +368,7 @@ class TradingPhase:
             c2_full = dataframe_interval(
                 self.__train_start, self.__test_end, c2)
 
+
             # Get beta coefficient and spread for train/test/full
             beta, spread_train = coint_spread(c1_train, c2_train)
             spread_full = c1_full-beta*c2_full
@@ -379,50 +378,53 @@ class TradingPhase:
             trade_array = function[model](spread_train=spread_train, spread_full=spread_full,
                                           spread_test=spread_test, c1_train=c1_train, c2_train=c2_train, c1_test=c1_test, c2_test=c2_test, **args)
 
+
             # Force close non convergent positions
             trade_array = self.__force_close(trade_array)
 
             # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable = self.__trade_spread(
-                c1=c1_test, c2=c2_test, trade_array=trade_array, FIXED_VALUE=FIXED_VALUE)
+                c1=c1_test, c2=c2_test, trade_array=trade_array, FIXED_VALUE=FIXED_VALUE,**load_args("TRADING"))
 
             # Evaluate pair performance
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
             if pair_performance > 100:
-                self.__profit += 1
+                profit += 1
             else:
-                self.__loss += 1
+                loss += 1
+
+            total_trades += n_trades
 
             try:  # Add portfolio variables
                 aux_pt_value += portfolio_value
                 aux_cash += cash
-                total_trades += n_trades
+                
             except:  # First pair, init portfolio variables
                 aux_pt_value = portfolio_value
                 aux_cash = cash
-                total_trades = n_trades
 
             # non convergent pair
             if days_open[-2] > 0:
-                self.__n_non_convergent_pairs += 1
+                n_non_convergent_pairs += 1
 
-        # Evaluate portfolio performance
-        self.__total_portfolio_value += list(aux_pt_value)
-        self.__total_cash += list(aux_cash)
-        self.__roi = (aux_pt_value[-1]/(FIXED_VALUE * n_pairs)) * 100 - 100
+            profit_loss_trade+=profitable_unprofitable
 
         # TradingPhase dictionary
-        info = {
-            "portfolio_start": self.__total_portfolio_value[0],
-            "portfolio_end": self.__total_portfolio_value[-1],
-            "portfolio_values": self.__total_portfolio_value,
-            "simulation_start": self.__test_start,
-            "simulation_end": self.__test_end,
-            "cash": self.__total_cash,
-            "profit_pairs": self.__profit,
-            "loss_pairs": self.__loss,
-            "non_convergent_pairs": self.__n_non_convergent_pairs,
-            "roi": self.__roi,
+        stats = {
+            "portfolio_start": self.__INIT_VALUE,
+            "portfolio_end": aux_pt_value[-1],
+            "portfolio_value": list(aux_pt_value),
+            "trading_start": self.__test_start,
+            "trading_end": self.__test_end,
+            "cash": list(aux_cash),
+            "profit_pairs": profit,
+            "loss_pairs": loss,
+            "profit_trades": int(profit_loss_trade[0]),
+            "loss_trades": int(profit_loss_trade[1]),
+            "non_convergent_pairs": n_non_convergent_pairs
         }
 
-        return info
+        # Change portfolio init value for next simulation
+        self.__INIT_VALUE=aux_pt_value[-1]
+
+        return stats

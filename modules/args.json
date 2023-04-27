@@ -28,5 +28,10 @@
         "window_size": 100,
         "word_size": 20,
         "alphabet_size": 10
+    },
+    "TRADING": {
+        "commission": 0.08,
+        "market_impact": 0.2,
+        "short_loan": 1
     }
 }

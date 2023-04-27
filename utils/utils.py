@@ -218,10 +218,10 @@ def compute_zscore(full_spread, test_spread):
     t_spread = np.zeros(len(test_spread))
 
     for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[day: day + (offset + 1)]
+        spread_to_consider = full_spread[(day+1): (day+1) + offset]
 
         norm_spread[day] = (
-            daily_value - spread_to_consider.mean()) / np.std(spread_to_consider)
+            daily_value - spread_to_consider.mean()) / spread_to_consider.std()
 
         mean[day] = spread_to_consider.mean()
         std[day] = spread_to_consider.std()
@@ -308,3 +308,16 @@ def change_args(model,parameter,newvalue):
     with open(file_args, 'w') as f:
         # Write the modified dictionary to the file
         json.dump(data, f,indent=4)
+
+def max_drawdown(s, verbose = False):
+  i = np.argmax(np.maximum.accumulate(s) - s) # end of the period
+  j = np.argmax(s[:i]) # start of period
+
+  mdd = ((s[j] - s[i])/s[j] ) * 100
+
+  if verbose:
+    plt.plot(s)
+    plt.plot([i, j], [s[i], s[j]], 'o', color='Red', markersize=10)
+    plt.show()
+
+  return mdd, i, j

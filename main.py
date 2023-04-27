@@ -49,7 +49,7 @@ def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_tra
         test_start = date_change(test_start, months_trading)
         test_end = date_change(test_end, months_trading)
 
-    # Evaluate portfolio after all simulations
+    # Evaluate portfolio after simulations and get performance metrics
     portfolio.evaluate()
 
     # Save portfolio to .pkl
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument('--end_date', type=tuple_int, default=(2019, 1, 1))
     parser.add_argument('--months_trading', type=int, default=12)
     parser.add_argument('--months_forming', type=int, default=12)
-    parser.add_argument('--pairs_alg', type=str, default='DIST')
+    parser.add_argument('--pairs_alg', type=str, default='COINT')
     parser.add_argument('--trading_alg', type=str, default='TH')
     args = parser.parse_args()
 

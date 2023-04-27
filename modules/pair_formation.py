@@ -1,14 +1,12 @@
 
 
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 
 from operator import itemgetter
-from statsmodels.api import OLS
-from statsmodels.tsa.stattools import coint, adfuller
+
+from statsmodels.tsa.stattools import coint
 from hurst import compute_Hc as hurst_exponent
-from scipy.stats import zscore
+
 
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.operators.crossover.pntx import TwoPointCrossover
@@ -19,7 +17,7 @@ from pymoo.optimize import minimize
 from pymoo.util.ref_dirs import get_reference_directions
 
 from utils.objectives import PairFormationObjectives
-from utils.utils import date_string, dataframe_interval, study_results, results_to_tickers, load_args
+from utils.utils import date_string, dataframe_interval, study_results, results_to_tickers, load_args,coint_spread
 
 
 class PairFormation:
@@ -124,21 +122,23 @@ class PairFormation:
 
                 signal2 = data[tickers[j]]
 
-                if self.__Engle_Granger(signal1, signal2, pvalue_threshold, hurst_threshold):
-                    pairs.append([[tickers[i]], [tickers[j]]])
+                t_stat, p_value, crit_value = coint(signal1, signal2)
+                
+                if p_value >= pvalue_threshold:
+                    continue
+            
+                
+                # Compute the Hurst exponent for spread
+                beta,spread=coint_spread(signal1, signal2)
+                H, _ ,_= hurst_exponent(spread)
+
+
+                if H >= hurst_threshold :
+                    continue
+
+                pairs.append([[tickers[i]], [tickers[j]]])
 
         self.__all_pairs = pairs
-
-    def __Engle_Granger(self, signal1, signal2, pvalue_threshold=0.05, hurst_threshold=0.5):
-
-        beta = OLS(signal2, signal1).fit().params[0]
-        spread = signal2-beta*signal1
-        result = coint(signal1, signal2)
-        score = result[0]
-        pvalue = result[1]
-        hurst, _, _ = hurst_exponent(spread)
-
-        return True if pvalue <= pvalue_threshold and hurst <= hurst_threshold else False
 
     def find_pairs(self, model):
 
@@ -146,20 +146,16 @@ class PairFormation:
         function = {'COINT': self.__cointegrated_pairs,
                     'DIST': self.__distance_pairs, 'NSGA': self.__nsga2}
 
-        # Select function arguments
-        args = load_args(model)
-
         # Apply pair formation model and find pairs
-        function[model](**args)
+        function[model](**load_args(model))
 
         # PairFormation dictionary
-        info = {"model": model,
+        stats = {"model": model,
                 "formation_start": self.__start,
                 "formation_end":  self.__end,
                 "n_tickers": len(self.__tickers),
                 "n_pairs": len(self.__all_pairs),
-                "n_unique_tickers": len(np.unique(self.__all_pairs)),
                 "pairs": self.__all_pairs,
                 }
 
-        return info
+        return stats
