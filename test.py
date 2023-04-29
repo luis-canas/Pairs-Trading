@@ -53,14 +53,14 @@ def sax_test():
 
 def simple_pattern__test():
 
-    word_size=4
+    word_size=15
     alphabet_size=20
 
     np.random.seed(1)
     # Set the duration and frequency of the sine wave
     duration = 1.5  # seconds
     freq = 1  # Hz
-    num=int(duration*6)
+    num=int(duration*100)
 
     # Create a time vector
     t = np.linspace(0, duration, num=num)
