@@ -47,15 +47,16 @@ def find_pattern(data,n, alphabet_size):
             for j in range(n):
                 temp[j, :] = section
 
-            print(temp)
+
 
             # Reshape the matrix into a row vector
-            expanded_section = temp.reshape((1, N*n))
+            expanded_section = temp.reshape(1,N*n)
+            print(section)
+            print(temp)
             print(expanded_section)
-            expanded_section = np.tile(section, n)
-            print(expanded_section)
-            print(r_expanded_section)
-            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=0)
+            print(np.reshape(expanded_section, (N, n)))
+            PAA = np.mean(np.reshape(expanded_section, (N, n)),axis=1)
+            print(PAA)
         # N is dividable by n
         else:
             PAA = np.mean(np.reshape(section, (n,win_size)),axis=1)
