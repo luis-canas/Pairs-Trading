@@ -163,20 +163,20 @@ class PairFormationObjectives(ElementwiseProblem):
 
 class SaxObjectives(ElementwiseProblem):
 
-    def __init__(self, spread, c1, c2, window_size, word_size, alphabet_size):
+    def __init__(self, spread, c1, c2, alphabet_size):
 
         # spread and components price series
         self.spread = spread
         self.c1 = c1
         self.c2 = c2
-
-        # sax parameters
-        self.window_size = window_size
-        self.word_size = word_size
         self.alphabet_size = alphabet_size
 
-        # Chromossome size: pattern_distance for decision and pattern of decision
-        CHROMOSSOME_SIZE = 1+word_size
+        # sax parameters
+        MAX_PATTERN_SIZE = len(spread)
+
+        # Chromossome size: pattern_distance, word_size ,window_size and pattern of decision
+        NON_PATTERN_SIZE=1+1+1
+        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_PATTERN_SIZE
 
         # Chromossome for each decision (4 strategies)
         self.ENTER_LONG = CHROMOSSOME_SIZE
@@ -185,12 +185,12 @@ class SaxObjectives(ElementwiseProblem):
         self.EXIT_SHORT = 4*CHROMOSSOME_SIZE
 
         # lower bound and upper bound for pattern_distances
-        variables_lb = [0]
-        variables_ub = [100]
+        variables_lb = [0,1,1]
+        variables_ub = [100,MAX_PATTERN_SIZE,MAX_PATTERN_SIZE]
 
         # lower bound and upper bound for patterns
-        pattern_lb = [0]*word_size
-        pattern_ub = [alphabet_size-1]*word_size
+        pattern_lb = [0]*MAX_PATTERN_SIZE
+        pattern_ub = [alphabet_size-1]*MAX_PATTERN_SIZE
 
         # join bounds
         x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
@@ -207,21 +207,18 @@ class SaxObjectives(ElementwiseProblem):
 
         # extract chromossomes
         long_genes = x[:self.ENTER_LONG]
-        dist_long, pattern_long = long_genes[0], np.round(long_genes[1:])
+        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],long_genes[1],long_genes[2], np.round(long_genes[3:3+long_genes[1]+1])
 
         exit_long_genes = x[self.ENTER_LONG:self.EXIT_LONG]
-        dist_exit_long, pattern_exit_long = exit_long_genes[0], np.round(
-            exit_long_genes[1:])
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], exit_long_genes[1], exit_long_genes[2], np.round(exit_long_genes[3:3+exit_long_genes[1]+1])
 
         short_genes = x[self.EXIT_LONG:self.ENTER_SHORT]
-        dist_short, pattern_short = short_genes[0], np.round(short_genes[1:])
+        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], short_genes[1],short_genes[2],np.round(short_genes[3:3+short_genes[1]+1])
 
         exit_short_genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
-        dist_exit_short, pattern_exit_short = exit_short_genes[0], np.round(
-            exit_short_genes[1:])
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],exit_short_genes[1],exit_short_genes[2], np.round(exit_short_genes[3:3+exit_short_genes[1]+1])
 
         # Initialize variables for tracking trades and earnings
-        in_position = False
         position = CLOSE_POSITION
         FIXED_VALUE = 1000
         stocks_in_hand = np.zeros(2)
@@ -230,95 +227,226 @@ class SaxObjectives(ElementwiseProblem):
         s_dist = 0
 
         # Slide a window along the time series and convert to SAX
-        for i in range(len(self.spread) - self.window_size):
+        for day in range(len(self.spread)):
 
-            day = i+self.window_size
-            window = self.spread[i:day]
-            sax_seq, _ = find_pattern(
-                window, self.word_size, self.alphabet_size)
+            long_sax_seq,short_sax_seq=self.get_patterns(position,self.spread,self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
 
             # Apply the buy and sell rules
-            if not in_position:
+            if position == CLOSE_POSITION:
 
-                l_dist = pattern_distance(sax_seq, pattern_long)
-                s_dist = pattern_distance(sax_seq, pattern_short)
+                l_dist = pattern_distance(long_sax_seq, pattern_long)
+                s_dist = pattern_distance(short_sax_seq, pattern_short)
 
                 if l_dist < dist_long:  # LONG SPREAD
-
-                    in_position, position = True, LONG_SPREAD
-
-                    value_to_buy = min(FIXED_VALUE, cash_in_hand)
-                    # long c1
-                    cash_in_hand += -value_to_buy
-                    stocks_in_hand[0] = value_to_buy / self.c1[day]
-                    # short c2
-                    cash_in_hand += value_to_buy
-                    stocks_in_hand[1] = -value_to_buy / self.c2[day]
+                    position,cash_in_hand,stocks_in_hand=self.trade_decision(LONG_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
                 elif s_dist < dist_short:  # SHORT SPREAD
+                    position,cash_in_hand,stocks_in_hand=self.trade_decision(SHORT_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
-                    in_position, position = True, SHORT_SPREAD
-
-                    value_to_buy = min(FIXED_VALUE, cash_in_hand)
-                    # long c2
-                    cash_in_hand += -value_to_buy
-                    stocks_in_hand[1] = value_to_buy / self.c2[day]
-                    # short c1
-                    cash_in_hand += value_to_buy
-                    stocks_in_hand[0] = -value_to_buy / self.c1[day]
-
-            elif in_position:
-
+            else:
                 if position == LONG_SPREAD:
-                    l_dist = pattern_distance(sax_seq, pattern_exit_long)
+                    l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
                 elif position == SHORT_SPREAD:
-                    s_dist = pattern_distance(sax_seq, pattern_exit_short)
+                    s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
 
                 if (l_dist > dist_exit_long and position == LONG_SPREAD) or (s_dist > dist_exit_short and position == SHORT_SPREAD):
+                    position,cash_in_hand,stocks_in_hand=self.trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
-                    in_position, position = False, CLOSE_POSITION
-                    sale_value = stocks_in_hand[0] * \
-                        self.c1[day] + stocks_in_hand[1] * self.c2[day]
-                    cash_in_hand += sale_value
-                    # both positions were closed
-                    stocks_in_hand[0] = stocks_in_hand[1] = 0
+        if position!=CLOSE_POSITION:
+            position,cash_in_hand,stocks_in_hand=self.trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
-        portfolio_value = cash_in_hand + \
-            stocks_in_hand[0] * self.c1[day] + stocks_in_hand[1] * self.c2[day]
+        # constraints
+        # size of the pattern must be lower or equal than size of the window
+        g1 = word_size_long - window_size_long
+        g2 = word_size_short - window_size_short
+        g3 = word_size_exit_long - window_size_exit_long
+        g4 = word_size_exit_short - window_size_exit_short
 
+        # Set constraints
+        out["G"] = [g1, g2, g3, g4]
         # Set the fitness value to the total earnings
-        out["F"] = -portfolio_value
+        out["F"] = -cash_in_hand
+
+    def get_patterns(position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
+        
+        long_sax_seq,short_sax_seq= None,None
+
+        if position==CLOSE_POSITION:
+
+            if window_size_long>=len(spread):
+                long_sax_seq, _ = find_pattern(spread[-window_size_long,:], word_size_long, alphabet)
+            if window_size_short>=len(spread):
+                short_sax_seq, _ = find_pattern(spread[-window_size_short,:], word_size_short, alphabet)
+        else:
+            if position == LONG_SPREAD:
+                if window_size_exit_long>=len(spread):
+                    long_sax_seq, _ = find_pattern(spread[-window_size_exit_long,:], word_size_exit_long, alphabet)
+            elif position == SHORT_SPREAD:
+                if window_size_exit_short>=len(spread):
+                    short_sax_seq, _ = find_pattern(spread[-window_size_exit_short,:], word_size_exit_short, alphabet)
+
+        return long_sax_seq,short_sax_seq
+
+    def trade_decision(position,FIXED_VALUE, cash_in_hand,stocks_in_hand,c1_day,c2_day):
+        
+        if position==LONG_SPREAD:
+
+            value_to_buy = min(FIXED_VALUE, cash_in_hand)
+            # long c1
+            cash_in_hand += -value_to_buy
+            stocks_in_hand[0] = value_to_buy / c1_day
+            # short c2
+            cash_in_hand += value_to_buy
+            stocks_in_hand[1] = -value_to_buy / c2_day
+
+        elif position==SHORT_SPREAD:
+
+            value_to_buy = min(FIXED_VALUE, cash_in_hand)
+            # long c2
+            cash_in_hand += -value_to_buy
+            stocks_in_hand[1] = value_to_buy / c2_day
+            # short c1
+            cash_in_hand += value_to_buy
+            stocks_in_hand[0] = -value_to_buy / c1_day
+        
+        elif position==CLOSE_POSITION:
+
+
+            sale_value = stocks_in_hand[0] * c1_day + stocks_in_hand[1] * c2_day
+            cash_in_hand += sale_value
+            # both positions were closed
+            stocks_in_hand[0] = stocks_in_hand[1] = 0
 
 
 
-class SaxCrossover(Crossover):
+        return position,cash_in_hand,stocks_in_hand
 
-    def __init__(self, n_points, **kwargs):
-        super().__init__(2, 2, **kwargs)
-        self.n_points = n_points
 
-    def _do(self, _, X, **kwargs):
 
-        # get the X of parents and count the matings
-        _, n_matings, n_var = X.shape
+# class SaxObjectives(ElementwiseProblem):
 
-        # start point of crossover
-        r = np.row_stack([np.random.permutation(n_var - 1) + 1 for _ in range(n_matings)])[:, :self.n_points]
-        r.sort(axis=1)
-        r = np.column_stack([r, np.full(n_matings, n_var)])
+#     def __init__(self, spread, c1, c2, window_size, word_size, alphabet_size):
 
-        # the mask do to the crossover
-        M = np.full((n_matings, n_var), False)
+#         # spread and components price series
+#         self.spread = spread
+#         self.c1 = c1
+#         self.c2 = c2
 
-        # create for each individual the crossover range
-        for i in range(n_matings):
+#         # sax parameters
+#         self.window_size = window_size
+#         self.word_size = word_size
+#         self.alphabet_size = alphabet_size
 
-            j = 0
-            while j < r.shape[1] - 1:
-                a, b = r[i, j], r[i, j + 1]
-                M[i, a:b] = True
-                j += 2
+#         # Chromossome size: pattern_distance for decision and pattern of decision
+#         CHROMOSSOME_SIZE = 1+word_size
 
-        Xp = crossover_mask(X, M)
+#         # Chromossome for each decision (4 strategies)
+#         self.ENTER_LONG = CHROMOSSOME_SIZE
+#         self.EXIT_LONG = 2*CHROMOSSOME_SIZE
+#         self.ENTER_SHORT = 3*CHROMOSSOME_SIZE
+#         self.EXIT_SHORT = 4*CHROMOSSOME_SIZE
 
-        return Xp
+#         # lower bound and upper bound for pattern_distances
+#         variables_lb = [0]
+#         variables_ub = [100]
+
+#         # lower bound and upper bound for patterns
+#         pattern_lb = [0]*word_size
+#         pattern_ub = [alphabet_size-1]*word_size
+
+#         # join bounds
+#         x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
+#         xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
+
+#         super().__init__(n_var=4*CHROMOSSOME_SIZE,
+#                          n_obj=1,
+#                          n_constr=0,
+#                          xl=x1,
+#                          xu=xu,
+#                          vtype=float)
+
+#     def _evaluate(self, x, out, *args, **kwargs):
+
+#         # extract chromossomes
+#         long_genes = x[:self.ENTER_LONG]
+#         dist_long, pattern_long = long_genes[0], np.round(long_genes[1:])
+
+#         exit_long_genes = x[self.ENTER_LONG:self.EXIT_LONG]
+#         dist_exit_long, pattern_exit_long = exit_long_genes[0], np.round(
+#             exit_long_genes[1:])
+
+#         short_genes = x[self.EXIT_LONG:self.ENTER_SHORT]
+#         dist_short, pattern_short = short_genes[0], np.round(short_genes[1:])
+
+#         exit_short_genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
+#         dist_exit_short, pattern_exit_short = exit_short_genes[0], np.round(
+#             exit_short_genes[1:])
+
+#         # Initialize variables for tracking trades and earnings
+#         in_position = False
+#         position = CLOSE_POSITION
+#         FIXED_VALUE = 1000
+#         stocks_in_hand = np.zeros(2)
+#         cash_in_hand = FIXED_VALUE
+#         l_dist = 0
+#         s_dist = 0
+
+#         # Slide a window along the time series and convert to SAX
+#         for i in range(len(self.spread) - self.window_size):
+
+#             day = i+self.window_size
+#             window = self.spread[i:day]
+#             sax_seq, _ = find_pattern(
+#                 window, self.word_size, self.alphabet_size)
+
+#             # Apply the buy and sell rules
+#             if not in_position:
+
+#                 l_dist = pattern_distance(sax_seq, pattern_long)
+#                 s_dist = pattern_distance(sax_seq, pattern_short)
+
+#                 if l_dist < dist_long:  # LONG SPREAD
+
+#                     in_position, position = True, LONG_SPREAD
+
+#                     value_to_buy = min(FIXED_VALUE, cash_in_hand)
+#                     # long c1
+#                     cash_in_hand += -value_to_buy
+#                     stocks_in_hand[0] = value_to_buy / self.c1[day]
+#                     # short c2
+#                     cash_in_hand += value_to_buy
+#                     stocks_in_hand[1] = -value_to_buy / self.c2[day]
+
+#                 elif s_dist < dist_short:  # SHORT SPREAD
+
+#                     in_position, position = True, SHORT_SPREAD
+
+#                     value_to_buy = min(FIXED_VALUE, cash_in_hand)
+#                     # long c2
+#                     cash_in_hand += -value_to_buy
+#                     stocks_in_hand[1] = value_to_buy / self.c2[day]
+#                     # short c1
+#                     cash_in_hand += value_to_buy
+#                     stocks_in_hand[0] = -value_to_buy / self.c1[day]
+
+#             elif in_position:
+
+#                 if position == LONG_SPREAD:
+#                     l_dist = pattern_distance(sax_seq, pattern_exit_long)
+#                 elif position == SHORT_SPREAD:
+#                     s_dist = pattern_distance(sax_seq, pattern_exit_short)
+
+#                 if (l_dist > dist_exit_long and position == LONG_SPREAD) or (s_dist > dist_exit_short and position == SHORT_SPREAD):
+
+#                     in_position, position = False, CLOSE_POSITION
+#                     sale_value = stocks_in_hand[0] * \
+#                         self.c1[day] + stocks_in_hand[1] * self.c2[day]
+#                     cash_in_hand += sale_value
+#                     # both positions were closed
+#                     stocks_in_hand[0] = stocks_in_hand[1] = 0
+
+#         portfolio_value = cash_in_hand + \
+#             stocks_in_hand[0] * self.c1[day] + stocks_in_hand[1] * self.c2[day]
+
+#         # Set the fitness value to the total earnings
+#         out["F"] = -portfolio_value
