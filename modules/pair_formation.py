@@ -16,7 +16,7 @@ from pymoo.optimize import minimize
 
 from pymoo.util.ref_dirs import get_reference_directions
 
-from utils.objectives import PairFormationObjectives
+from utils.genetic_algorithm import PairFormationObjectives
 from utils.utils import date_string, dataframe_interval, study_results, results_to_tickers, load_args,coint_spread
 
 

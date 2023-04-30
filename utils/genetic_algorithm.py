@@ -3,10 +3,12 @@ import numpy as np
 import statsmodels.api as sm
 from statsmodels.tsa.stattools import coint
 
-from utils.symbolic_aggregate_approximation import timeseries2symbol, min_dist, pattern_distance, find_pattern
+from utils.symbolic_aggregate_approximation import min_dist, pattern_distance, find_pattern
 from utils.utils import price_of_entire_component
 from pymoo.core.problem import ElementwiseProblem
-from pymoo.operators.crossover.pntx import TwoPointCrossover
+from pymoo.core.crossover import Crossover
+from pymoo.util.misc import crossover_mask
+
 
 
 # Constants
@@ -286,3 +288,37 @@ class SaxObjectives(ElementwiseProblem):
 
         # Set the fitness value to the total earnings
         out["F"] = -portfolio_value
+
+
+
+class SaxCrossover(Crossover):
+
+    def __init__(self, n_points, **kwargs):
+        super().__init__(2, 2, **kwargs)
+        self.n_points = n_points
+
+    def _do(self, _, X, **kwargs):
+
+        # get the X of parents and count the matings
+        _, n_matings, n_var = X.shape
+
+        # start point of crossover
+        r = np.row_stack([np.random.permutation(n_var - 1) + 1 for _ in range(n_matings)])[:, :self.n_points]
+        r.sort(axis=1)
+        r = np.column_stack([r, np.full(n_matings, n_var)])
+
+        # the mask do to the crossover
+        M = np.full((n_matings, n_var), False)
+
+        # create for each individual the crossover range
+        for i in range(n_matings):
+
+            j = 0
+            while j < r.shape[1] - 1:
+                a, b = r[i, j], r[i, j + 1]
+                M[i, a:b] = True
+                j += 2
+
+        Xp = crossover_mask(X, M)
+
+        return Xp

@@ -14,7 +14,7 @@ from pymoo.optimize import minimize
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args
 from utils.symbolic_aggregate_approximation import pattern_distance, find_pattern
 
-from utils.objectives import SaxObjectives
+from utils.genetic_algorithm import SaxObjectives
 
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
