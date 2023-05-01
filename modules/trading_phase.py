@@ -223,35 +223,39 @@ class TradingPhase:
                        eliminate_duplicates=True)
 
         # Get objective function
-        sax_objectives = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
-        ), c2=c2_train.to_numpy(), window_size=window_size, word_size=word_size, alphabet_size=alphabet_size)
+        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
+        ), c2=c2_train.to_numpy(), alphabet_size=alphabet_size)
 
         # Optimize patterns
-        results = minimize(sax_objectives, algorithm, ("n_gen", gen),
+        results = minimize(sax_ga, algorithm, ("n_gen", gen),
                            seed=1, save_history=True, verbose=verbose)
 
         # Define chromossomes intervals
         x = results.X
-        CHROMOSSOME_SIZE = 1+word_size
+        MAX_SIZE = len(spread_train)
+        NON_PATTERN_SIZE=1+1+1
+        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
         ENTER_LONG = CHROMOSSOME_SIZE
         EXIT_LONG = 2*CHROMOSSOME_SIZE
         ENTER_SHORT = 3*CHROMOSSOME_SIZE
         EXIT_SHORT = 4*CHROMOSSOME_SIZE
 
-        # Extract chromossomes
+        # extract chromossomes
         long_genes = x[:ENTER_LONG]
-        dist_long, pattern_long = long_genes[0], np.round(long_genes[1:])
+        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), np.round(long_genes[3:])
+        pattern_long=pattern_long[:word_size_long]
 
         exit_long_genes = x[ENTER_LONG:EXIT_LONG]
-        dist_exit_long, pattern_exit_long = exit_long_genes[0], np.round(
-            exit_long_genes[1:])
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
+        pattern_exit_long=pattern_exit_long[:word_size_exit_long]
 
         short_genes = x[EXIT_LONG:ENTER_SHORT]
-        dist_short, pattern_short = short_genes[0], np.round(short_genes[1:])
+        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),np.round(short_genes[3:])
+        pattern_short=pattern_short[:word_size_short]
 
         exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
-        dist_exit_short, pattern_exit_short = exit_short_genes[0], np.round(
-            exit_short_genes[1:])
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[3:])
+        pattern_exit_short=pattern_exit_short[:word_size_exit_short]
 
         # From full spread get start of the test set
         spread = spread_full.to_numpy()
@@ -260,64 +264,143 @@ class TradingPhase:
 
         # Init trade array and trade variables
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-        trade_array[0]=CLOSE_POSITION
+        trade_array[0],trade_array[-1]=CLOSE_POSITION,CLOSE_POSITION
         stabilizing_threshold = 5
-        in_position = False
         position = CLOSE_POSITION
         l_dist = 0
         s_dist = 0
 
-        for day in range(len(spread_test)):
+        for day in range(len(spread_test)-1):
 
             # Wait for spread to stabilize
             if day < stabilizing_threshold:
                 continue
 
-            # Window of current day and window_size-1 previous days
-            window = spread[offset - (window_size-1) + day: (offset + 1) + day]
+            print(spread_full,spread_test)
+            long_sax_seq,short_sax_seq=sax_ga._get_patterns(position,spread[:offset+day+1],alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
 
-            # SAX pattern
-            sax_seq, _ = find_pattern(window, word_size, alphabet_size)
+            # Apply the buy and sell rules
+            if position == CLOSE_POSITION:
+                
+                if long_sax_seq is not None:
+                    l_dist = pattern_distance(long_sax_seq, pattern_long)
+                if short_sax_seq is not None:
+                    s_dist = pattern_distance(short_sax_seq, pattern_short)
 
-            # Enter position
-            if not in_position:
-
-                # Measure distances
-                l_dist = pattern_distance(sax_seq, pattern_long)
-                s_dist = pattern_distance(sax_seq, pattern_short)
-
-                if l_dist < dist_long:  # LONG SPREAD
-
-                    in_position, position = True, LONG_SPREAD
-
-                    trade_array[day] = LONG_SPREAD
+                if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
+                    position,trade_array[day] = LONG_SPREAD,LONG_SPREAD
 
                 elif s_dist < dist_short:  # SHORT SPREAD
+                    position,trade_array[day] = SHORT_SPREAD,SHORT_SPREAD
 
-                    in_position, position = True, SHORT_SPREAD
+            elif position == LONG_SPREAD:
+                if long_sax_seq is not None:
+                    l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
+                    if l_dist > dist_exit_long:
+                        position,trade_array[day] = CLOSE_POSITION,CLOSE_POSITION
+                        l_dist,s_dist =np.inf,np.inf
 
-                    trade_array[day] = SHORT_SPREAD
+            elif position == SHORT_SPREAD:
+                if short_sax_seq is not None:
+                    s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
+                    if s_dist > dist_exit_short:
+                        position,trade_array[day] = CLOSE_POSITION,CLOSE_POSITION
+                        l_dist,s_dist =np.inf,np.inf
 
-            # Exit Position
-            elif in_position:
-
-                # Measure distances
-                if position == LONG_SPREAD:
-                    l_dist = pattern_distance(sax_seq, pattern_exit_long)
-                elif position == SHORT_SPREAD:
-                    s_dist = pattern_distance(sax_seq, pattern_exit_short)
-
-                # Close position
-                if (l_dist > dist_exit_long and position == LONG_SPREAD) or (s_dist > dist_exit_short and position == SHORT_SPREAD):
-
-                    in_position, position = False, CLOSE_POSITION
-
-                    trade_array[day] = CLOSE_POSITION
-
+ 
         # completes the array by propagating the last valid observation
         trade_array = trade_array.fillna(method='ffill')
 
         return trade_array
+    
+        # # Define chromossomes intervals
+        # x = results.X
+        # CHROMOSSOME_SIZE = 1+word_size
+        # ENTER_LONG = CHROMOSSOME_SIZE
+        # EXIT_LONG = 2*CHROMOSSOME_SIZE
+        # ENTER_SHORT = 3*CHROMOSSOME_SIZE
+        # EXIT_SHORT = 4*CHROMOSSOME_SIZE
+
+        # # Extract chromossomes
+        # long_genes = x[:ENTER_LONG]
+        # dist_long, pattern_long = long_genes[0], np.round(long_genes[1:])
+
+        # exit_long_genes = x[ENTER_LONG:EXIT_LONG]
+        # dist_exit_long, pattern_exit_long = exit_long_genes[0], np.round(
+        #     exit_long_genes[1:])
+
+        # short_genes = x[EXIT_LONG:ENTER_SHORT]
+        # dist_short, pattern_short = short_genes[0], np.round(short_genes[1:])
+
+        # exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
+        # dist_exit_short, pattern_exit_short = exit_short_genes[0], np.round(
+        #     exit_short_genes[1:])
+
+        # # From full spread get start of the test set
+        # spread = spread_full.to_numpy()
+        # i = spread_test.index[0]
+        # offset = spread_full.index.get_loc(i)
+
+        # # Init trade array and trade variables
+        # trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        # trade_array[0]=CLOSE_POSITION
+        # stabilizing_threshold = 5
+        # in_position = False
+        # position = CLOSE_POSITION
+        # l_dist = 0
+        # s_dist = 0
+
+        # for day in range(len(spread_test)):
+
+        #     # Wait for spread to stabilize
+        #     if day < stabilizing_threshold:
+        #         continue
+
+        #     # Window of current day and window_size-1 previous days
+        #     window = spread[offset - (window_size-1) + day: (offset + 1) + day]
+
+        #     # SAX pattern
+        #     sax_seq, _ = find_pattern(window, word_size, alphabet_size)
+
+        #     # Enter position
+        #     if not in_position:
+
+        #         # Measure distances
+        #         l_dist = pattern_distance(sax_seq, pattern_long)
+        #         s_dist = pattern_distance(sax_seq, pattern_short)
+
+        #         if l_dist < dist_long:  # LONG SPREAD
+
+        #             in_position, position = True, LONG_SPREAD
+
+        #             trade_array[day] = LONG_SPREAD
+
+        #         elif s_dist < dist_short:  # SHORT SPREAD
+
+        #             in_position, position = True, SHORT_SPREAD
+
+        #             trade_array[day] = SHORT_SPREAD
+
+        #     # Exit Position
+        #     elif in_position:
+
+        #         # Measure distances
+        #         if position == LONG_SPREAD:
+        #             l_dist = pattern_distance(sax_seq, pattern_exit_long)
+        #         elif position == SHORT_SPREAD:
+        #             s_dist = pattern_distance(sax_seq, pattern_exit_short)
+
+        #         # Close position
+        #         if (l_dist > dist_exit_long and position == LONG_SPREAD) or (s_dist > dist_exit_short and position == SHORT_SPREAD):
+
+        #             in_position, position = False, CLOSE_POSITION
+
+        #             trade_array[day] = CLOSE_POSITION
+
+        # # completes the array by propagating the last valid observation
+        # trade_array = trade_array.fillna(method='ffill')
+
+        # return trade_array
 
     def run_simulation(self, model):
 

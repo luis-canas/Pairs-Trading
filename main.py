@@ -68,8 +68,8 @@ if __name__ == "__main__":
     parser.add_argument('--end_date', type=tuple_int, default=(2019, 1, 1))
     parser.add_argument('--months_trading', type=int, default=12)
     parser.add_argument('--months_forming', type=int, default=12)
-    parser.add_argument('--pairs_alg', type=str, default='COINT')
-    parser.add_argument('--trading_alg', type=str, default='TH')
+    parser.add_argument('--pairs_alg', type=str, default='DIST')
+    parser.add_argument('--trading_alg', type=str, default='SAX')
     args = parser.parse_args()
 
     main(args.pairs_alg, args.trading_alg, args.index, args.sector,

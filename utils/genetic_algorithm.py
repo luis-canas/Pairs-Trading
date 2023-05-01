@@ -172,11 +172,11 @@ class SaxObjectives(ElementwiseProblem):
         self.alphabet_size = alphabet_size
 
         # sax parameters
-        MAX__SIZE = len(spread)
+        MAX_SIZE = len(spread)
 
         # Chromossome size: pattern_distance, word_size ,window_size and pattern of decision
         NON_PATTERN_SIZE=1+1+1
-        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX__SIZE
+        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
 
         # Chromossome for each decision (4 strategies)
         self.ENTER_LONG = CHROMOSSOME_SIZE
@@ -186,11 +186,11 @@ class SaxObjectives(ElementwiseProblem):
 
         # lower bound and upper bound for pattern_distances
         variables_lb = [0,1,1]
-        variables_ub = [100,MAX__SIZE,MAX__SIZE]
+        variables_ub = [50,MAX_SIZE,MAX_SIZE]
 
         # lower bound and upper bound for patterns
-        pattern_lb = [0]*MAX__SIZE
-        pattern_ub = [alphabet_size-1]*MAX__SIZE
+        pattern_lb = [0]*MAX_SIZE
+        pattern_ub = [alphabet_size-1]*MAX_SIZE
 
         # join bounds
         x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
@@ -198,7 +198,7 @@ class SaxObjectives(ElementwiseProblem):
 
         super().__init__(n_var=4*CHROMOSSOME_SIZE,
                          n_obj=1,
-                         n_constr=0,
+                         n_constr=4,
                          xl=x1,
                          xu=xu,
                          vtype=float)
@@ -207,17 +207,22 @@ class SaxObjectives(ElementwiseProblem):
 
         # extract chromossomes
         long_genes = x[:self.ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],np.round(long_genes[1]),np.round(long_genes[2]), np.round(long_genes[3:3+long_genes[1]+1])
+        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), np.round(long_genes[3:])
+        pattern_long=pattern_long[:word_size_long]
 
         exit_long_genes = x[self.ENTER_LONG:self.EXIT_LONG]
-        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], np.round(exit_long_genes[1]), np.round(exit_long_genes[2]), np.round(exit_long_genes[3:3+exit_long_genes[1]+1])
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
+        pattern_exit_long=pattern_exit_long[:word_size_exit_long]
 
         short_genes = x[self.EXIT_LONG:self.ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], np.round(short_genes[1]),np.round(short_genes[2]),np.round(short_genes[3:3+short_genes[1]+1])
+        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),np.round(short_genes[3:])
+        pattern_short=pattern_short[:word_size_short]
 
         exit_short_genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
-        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],np.round(exit_short_genes[1]),np.round(exit_short_genes[2]), np.round(exit_short_genes[3:3+exit_short_genes[1]+1])
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[3:])
+        pattern_exit_short=pattern_exit_short[:word_size_exit_short]
 
+       
         # Initialize variables for tracking trades and earnings
         position = CLOSE_POSITION
         FIXED_VALUE = 1000
@@ -226,43 +231,46 @@ class SaxObjectives(ElementwiseProblem):
         l_dist =np.inf
         s_dist =np.inf
 
-        # Slide a window along the time series and convert to SAX
-        for day in range(len(self.spread)):
+        if word_size_long<=window_size_long and word_size_short<=window_size_short and word_size_exit_long<=window_size_exit_long and word_size_exit_short<=window_size_exit_short:
 
-            long_sax_seq,short_sax_seq=self.get_patterns(position,self.spread,self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
+            # Slide a window along the time series and convert to SAX, except last day where we close position
+            for day in range(len(self.spread)-1):
 
-            # Apply the buy and sell rules
-            if position == CLOSE_POSITION:
-                
-                if long_sax_seq is not None:
-                    l_dist = pattern_distance(long_sax_seq, pattern_long)
-                if short_sax_seq is not None:
-                    s_dist = pattern_distance(short_sax_seq, pattern_short)
+                long_sax_seq,short_sax_seq=self._get_patterns(position,self.spread[:day+1],self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
 
-                if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
-                    position,cash_in_hand,stocks_in_hand=self.trade_decision(LONG_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+                # Apply the buy and sell rules
+                if position == CLOSE_POSITION:
+                    
+                    if long_sax_seq is not None:
+                        l_dist = pattern_distance(long_sax_seq, pattern_long)
+                    if short_sax_seq is not None:
+                        s_dist = pattern_distance(short_sax_seq, pattern_short)
 
-                elif s_dist < dist_short:  # SHORT SPREAD
-                    position,cash_in_hand,stocks_in_hand=self.trade_decision(SHORT_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+                    if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
+                        position,cash_in_hand,stocks_in_hand=self._trade_decision(LONG_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
-            else:
-                if position == LONG_SPREAD:
+                    elif s_dist < dist_short:  # SHORT SPREAD
+                        position,cash_in_hand,stocks_in_hand=self._trade_decision(SHORT_SPREAD,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+
+
+                elif position == LONG_SPREAD:
                     if long_sax_seq is not None:
                         l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
                         if l_dist > dist_exit_long:
-                            position,cash_in_hand,stocks_in_hand=self.trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
-                            l_dist =np.inf
-                            s_dist =np.inf
+                            position,cash_in_hand,stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+                            l_dist,s_dist =np.inf,np.inf
+
+
                 elif position == SHORT_SPREAD:
                     if short_sax_seq is not None:
                         s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
                         if s_dist > dist_exit_short:
-                            position,cash_in_hand,stocks_in_hand=self.trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
-                            l_dist =np.inf
-                            s_dist =np.inf
+                            position,cash_in_hand,stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+                            l_dist,s_dist =np.inf,np.inf
 
-        if position!=CLOSE_POSITION:
-            position,cash_in_hand,stocks_in_hand=self.trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
+
+            if position!=CLOSE_POSITION:
+                position,cash_in_hand,stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand,stocks_in_hand,self.c1[day],self.c2[day])
 
         # constraints
         # size of the pattern must be lower or equal than size of the window
@@ -276,27 +284,28 @@ class SaxObjectives(ElementwiseProblem):
         # Set the fitness value to the total earnings
         out["F"] = -cash_in_hand
 
-    def get_patterns(position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
+    def _get_patterns(self,position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
         
         long_sax_seq,short_sax_seq= None,None
 
         if position==CLOSE_POSITION:
 
-            if window_size_long>=len(spread):
-                long_sax_seq, _ = find_pattern(spread[-window_size_long,:], word_size_long, alphabet)
-            if window_size_short>=len(spread):
-                short_sax_seq, _ = find_pattern(spread[-window_size_short,:], word_size_short, alphabet)
-        else:
-            if position == LONG_SPREAD:
-                if window_size_exit_long>=len(spread):
-                    long_sax_seq, _ = find_pattern(spread[-window_size_exit_long,:], word_size_exit_long, alphabet)
-            elif position == SHORT_SPREAD:
-                if window_size_exit_short>=len(spread):
-                    short_sax_seq, _ = find_pattern(spread[-window_size_exit_short,:], word_size_exit_short, alphabet)
+            if window_size_long<=len(spread):
+                long_sax_seq, _ = find_pattern(spread[-window_size_long:], word_size_long, alphabet)
+            if window_size_short<=len(spread):
+                short_sax_seq, _ = find_pattern(spread[-window_size_short:], word_size_short, alphabet)
+
+        elif position == LONG_SPREAD:
+            if window_size_exit_long<=len(spread):
+                long_sax_seq, _ = find_pattern(spread[-window_size_exit_long:], word_size_exit_long, alphabet)
+
+        elif position == SHORT_SPREAD:
+            if window_size_exit_short<=len(spread):
+                short_sax_seq, _ = find_pattern(spread[-window_size_exit_short:], word_size_exit_short, alphabet)
 
         return long_sax_seq,short_sax_seq
 
-    def trade_decision(position,FIXED_VALUE, cash_in_hand,stocks_in_hand,c1_day,c2_day):
+    def _trade_decision(self,position,FIXED_VALUE, cash_in_hand,stocks_in_hand,c1_day,c2_day):
         
         if position==LONG_SPREAD:
 
