@@ -23,7 +23,7 @@
         "close": 0
     },
     "SAX": {
-        "gen": 5,
+        "gen": 200,
         "pop": 50,
         "window_size": 100,
         "word_size": 20,

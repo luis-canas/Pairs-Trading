@@ -268,7 +268,7 @@ class TradingPhase:
 
         # Init trade array and trade variables
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-        trade_array[0], trade_array[-1] = CLOSE_POSITION, CLOSE_POSITION
+        trade_array.iloc[0],trade_array.iloc[-1] = CLOSE_POSITION,CLOSE_POSITION
         stabilizing_threshold = 5
         position = CLOSE_POSITION
         l_dist = 0
@@ -293,16 +293,16 @@ class TradingPhase:
 
                 # LONG SPREAD
                 if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist < s_dist)):
-                    position, trade_array[day] = LONG_SPREAD, LONG_SPREAD
+                    position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
 
                 elif s_dist < dist_short:  # SHORT SPREAD
-                    position, trade_array[day] = SHORT_SPREAD, SHORT_SPREAD
+                    position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
 
             elif position == LONG_SPREAD:
                 if long_sax_seq is not None:
                     l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
                     if l_dist > dist_exit_long:
-                        position, trade_array[day] = CLOSE_POSITION, CLOSE_POSITION
+                        position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                         l_dist, s_dist = np.inf, np.inf
 
             elif position == SHORT_SPREAD:
@@ -310,7 +310,7 @@ class TradingPhase:
                     s_dist = pattern_distance(
                         short_sax_seq, pattern_exit_short)
                     if s_dist > dist_exit_short:
-                        position, trade_array[day] = CLOSE_POSITION, CLOSE_POSITION
+                        position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                         l_dist, s_dist = np.inf, np.inf
 
         # completes the array by propagating the last valid observation
