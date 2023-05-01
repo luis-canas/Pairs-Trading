@@ -493,6 +493,7 @@ class TradingPhase:
 
         # TradingPhase dictionary
         stats = {
+            "model":model,
             "portfolio_start": self.__INIT_VALUE,
             "portfolio_end": aux_pt_value[-1],
             "portfolio_value": list(aux_pt_value),
