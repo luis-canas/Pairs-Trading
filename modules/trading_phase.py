@@ -462,7 +462,7 @@ class TradingPhase:
 
 
             # Force close non convergent positions
-            trade_array = self.__force_close(trade_array)
+            # trade_array = self.__force_close(trade_array)
 
             # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable = self.__trade_spread(
