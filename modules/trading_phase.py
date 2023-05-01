@@ -31,13 +31,13 @@ class TradingPhase:
     A class used to represent TradingPhase models
 
     """
-    
+
     def __init__(self, data):
 
         self.__pairs = []  # List of pairs
         self.__data = data  # Price series
         self.__tickers = data.keys()  # Data tickers
-        self.__INIT_VALUE=PORTFOLIO_INIT
+        self.__INIT_VALUE = PORTFOLIO_INIT
 
     def set_pairs(self, pairs):
 
@@ -77,7 +77,7 @@ class TradingPhase:
 
         return decision_array
 
-    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,**kwargs):
+    def __trade_spread(self, c1, c2, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1, **kwargs):
 
         # Close all positions in the last day of the trading period whether they have converged or not
         trade_array.iloc[-1] = CLOSE_POSITION
@@ -233,7 +233,7 @@ class TradingPhase:
         # Define chromossomes intervals
         x = results.X
         MAX_SIZE = len(spread_train)
-        NON_PATTERN_SIZE=1+1+1
+        NON_PATTERN_SIZE = 1+1+1
         CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
         ENTER_LONG = CHROMOSSOME_SIZE
         EXIT_LONG = 2*CHROMOSSOME_SIZE
@@ -242,20 +242,24 @@ class TradingPhase:
 
         # extract chromossomes
         long_genes = x[:ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), np.round(long_genes[3:])
-        pattern_long=pattern_long[:word_size_long]
+        dist_long, word_size_long, window_size_long, pattern_long = long_genes[0], round(
+            long_genes[1]), round(long_genes[2]), np.round(long_genes[3:])
+        pattern_long = pattern_long[:word_size_long]
 
         exit_long_genes = x[ENTER_LONG:EXIT_LONG]
-        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
-        pattern_exit_long=pattern_exit_long[:word_size_exit_long]
+        dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long = exit_long_genes[0], round(
+            exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
+        pattern_exit_long = pattern_exit_long[:word_size_exit_long]
 
         short_genes = x[EXIT_LONG:ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),np.round(short_genes[3:])
-        pattern_short=pattern_short[:word_size_short]
+        dist_short, word_size_short, window_size_short, pattern_short = short_genes[0], round(
+            short_genes[1]), round(short_genes[2]), np.round(short_genes[3:])
+        pattern_short = pattern_short[:word_size_short]
 
         exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
-        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[3:])
-        pattern_exit_short=pattern_exit_short[:word_size_exit_short]
+        dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short = exit_short_genes[0], round(
+            exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[3:])
+        pattern_exit_short = pattern_exit_short[:word_size_exit_short]
 
         # From full spread get start of the test set
         spread = spread_full.to_numpy()
@@ -264,7 +268,7 @@ class TradingPhase:
 
         # Init trade array and trade variables
         trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-        trade_array[0],trade_array[-1]=CLOSE_POSITION,CLOSE_POSITION
+        trade_array[0], trade_array[-1] = CLOSE_POSITION, CLOSE_POSITION
         stabilizing_threshold = 5
         position = CLOSE_POSITION
         l_dist = 0
@@ -276,42 +280,44 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
 
-            long_sax_seq,short_sax_seq=sax_ga._get_patterns(position,spread[:offset+day+1],alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
+            long_sax_seq, short_sax_seq = sax_ga._get_patterns(position, spread[:offset+day+1], alphabet_size, word_size_long, window_size_long,
+                                                               word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
 
             # Apply the buy and sell rules
             if position == CLOSE_POSITION:
-                
+
                 if long_sax_seq is not None:
                     l_dist = pattern_distance(long_sax_seq, pattern_long)
                 if short_sax_seq is not None:
                     s_dist = pattern_distance(short_sax_seq, pattern_short)
 
-                if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
-                    position,trade_array[day] = LONG_SPREAD,LONG_SPREAD
+                # LONG SPREAD
+                if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist < s_dist)):
+                    position, trade_array[day] = LONG_SPREAD, LONG_SPREAD
 
                 elif s_dist < dist_short:  # SHORT SPREAD
-                    position,trade_array[day] = SHORT_SPREAD,SHORT_SPREAD
+                    position, trade_array[day] = SHORT_SPREAD, SHORT_SPREAD
 
             elif position == LONG_SPREAD:
                 if long_sax_seq is not None:
                     l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
                     if l_dist > dist_exit_long:
-                        position,trade_array[day] = CLOSE_POSITION,CLOSE_POSITION
-                        l_dist,s_dist =np.inf,np.inf
+                        position, trade_array[day] = CLOSE_POSITION, CLOSE_POSITION
+                        l_dist, s_dist = np.inf, np.inf
 
             elif position == SHORT_SPREAD:
                 if short_sax_seq is not None:
-                    s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
+                    s_dist = pattern_distance(
+                        short_sax_seq, pattern_exit_short)
                     if s_dist > dist_exit_short:
-                        position,trade_array[day] = CLOSE_POSITION,CLOSE_POSITION
-                        l_dist,s_dist =np.inf,np.inf
+                        position, trade_array[day] = CLOSE_POSITION, CLOSE_POSITION
+                        l_dist, s_dist = np.inf, np.inf
 
- 
         # completes the array by propagating the last valid observation
         trade_array = trade_array.fillna(method='ffill')
 
         return trade_array
-    
+
         # # Define chromossomes intervals
         # x = results.X
         # CHROMOSSOME_SIZE = 1+word_size
@@ -419,12 +425,11 @@ class TradingPhase:
         n_non_convergent_pairs = 0
         profit = 0
         loss = 0
-        profit_loss_trade=np.zeros(2)
+        profit_loss_trade = np.zeros(2)
         total_trades = 0
 
         # Fixed_value is based on last simulation portfolio value
         FIXED_VALUE = self.__INIT_VALUE / n_pairs
-
 
         for component1, component2 in pairs:  # get components for each pair
 
@@ -435,7 +440,7 @@ class TradingPhase:
             # Get one series for each component
             c1 = price_of_entire_component(data, component1)
             c2 = price_of_entire_component(data, component2)
-    
+
             # Get series between train/test/full date intervals
             c1_train = dataframe_interval(
                 self.__train_start, self.__train_end, c1)
@@ -450,7 +455,6 @@ class TradingPhase:
             c2_full = dataframe_interval(
                 self.__train_start, self.__test_end, c2)
 
-
             # Get beta coefficient and spread for train/test/full
             beta, spread_train = coint_spread(c1_train, c2_train)
             spread_full = c1_full-beta*c2_full
@@ -460,13 +464,12 @@ class TradingPhase:
             trade_array = function[model](spread_train=spread_train, spread_full=spread_full,
                                           spread_test=spread_test, c1_train=c1_train, c2_train=c2_train, c1_test=c1_test, c2_test=c2_test, **args)
 
-
             # Force close non convergent positions
-            # trade_array = self.__force_close(trade_array)
+            trade_array = self.__force_close(trade_array)
 
             # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable = self.__trade_spread(
-                c1=c1_test, c2=c2_test, trade_array=trade_array, FIXED_VALUE=FIXED_VALUE,**load_args("TRADING"))
+                c1=c1_test, c2=c2_test, trade_array=trade_array, FIXED_VALUE=FIXED_VALUE, **load_args("TRADING"))
 
             # Evaluate pair performance
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
@@ -480,7 +483,7 @@ class TradingPhase:
             try:  # Add portfolio variables
                 aux_pt_value += portfolio_value
                 aux_cash += cash
-                
+
             except:  # First pair, init portfolio variables
                 aux_pt_value = portfolio_value
                 aux_cash = cash
@@ -489,11 +492,11 @@ class TradingPhase:
             if days_open[-2] > 0:
                 n_non_convergent_pairs += 1
 
-            profit_loss_trade+=profitable_unprofitable
+            profit_loss_trade += profitable_unprofitable
 
         # TradingPhase dictionary
         stats = {
-            "model":model,
+            "model": model,
             "portfolio_start": self.__INIT_VALUE,
             "portfolio_end": aux_pt_value[-1],
             "portfolio_value": list(aux_pt_value),
@@ -508,6 +511,6 @@ class TradingPhase:
         }
 
         # Change portfolio init value for next simulation
-        self.__INIT_VALUE=aux_pt_value[-1]
+        self.__INIT_VALUE = aux_pt_value[-1]
 
         return stats
