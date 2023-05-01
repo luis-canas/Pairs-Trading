@@ -276,7 +276,6 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
 
-            print(spread_full,spread_test)
             long_sax_seq,short_sax_seq=sax_ga._get_patterns(position,spread[:offset+day+1],alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
 
             # Apply the buy and sell rules
