@@ -25,8 +25,7 @@
     "SAX": {
         "gen": 200,
         "pop": 50,
-        "window_size": 100,
-        "word_size": 20,
+        "w_size": 252,
         "alphabet_size": 10
     },
     "TRADING": {
