@@ -1,4 +1,4 @@
-
+import sys
 
 """Symbolic Aggregate approXimation.
 
@@ -53,6 +53,8 @@ def find_pattern(data,n, alphabet_size):
             except:
                 print(section)
                 print((win_size,n))
+                print(sys.stderr)
+                sys.exit(1)
 
     # norm distribution breakpoints by scipy.stats
     breakpoints = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))
