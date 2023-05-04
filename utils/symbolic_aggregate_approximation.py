@@ -48,7 +48,11 @@ def find_pattern(data,n, alphabet_size):
 
         # N is dividable by n
         else:
-            PAA = np.mean(np.reshape(section, (win_size,n),order='F'),axis=0)
+            try:
+                PAA = np.mean(np.reshape(section, (win_size,n),order='F'),axis=0)
+            except:
+                print(section)
+                print((win_size,n))
 
     # norm distribution breakpoints by scipy.stats
     breakpoints = norm.ppf(np.linspace(1./alphabet_size,1-1./alphabet_size, alphabet_size-1))

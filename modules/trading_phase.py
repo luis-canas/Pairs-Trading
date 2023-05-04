@@ -232,7 +232,7 @@ class TradingPhase:
 
         # Define chromossomes intervals
         x = results.X
-        MAX_SIZE = len(spread_test)
+        MAX_SIZE = w_size
         NON_PATTERN_SIZE = 1+1+1
         CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
         ENTER_LONG = CHROMOSSOME_SIZE
@@ -337,7 +337,7 @@ class TradingPhase:
 
     #     # Define chromossomes intervals
     #     x = results.X
-    #     MAX_SIZE = len(spread_train)
+    #     MAX_SIZE = w_size
     #     NON_PATTERN_SIZE = 1+1+1
     #     CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
     #     ENTER_LONG = CHROMOSSOME_SIZE
