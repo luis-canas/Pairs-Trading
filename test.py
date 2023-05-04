@@ -5,7 +5,7 @@ import pandas as pd
 
 def simple_pattern__test():
 
-    word_size=15
+    word_size=20
     alphabet_size=20
 
     np.random.seed(1)
