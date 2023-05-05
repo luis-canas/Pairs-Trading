@@ -310,14 +310,31 @@ def change_args(model,parameter,newvalue):
         json.dump(data, f,indent=4)
 
 def max_drawdown(s, verbose = False):
-  i = np.argmax(np.maximum.accumulate(s) - s) # end of the period
-  j = np.argmax(s[:i]) # start of period
+    i = np.argmax(np.maximum.accumulate(s) - s) # end of the period
+    j = np.argmax(s[:i]) # start of period
 
-  mdd = ((s[j] - s[i])/s[j] ) * 100
+    mdd = ((s[j] - s[i])/s[j] ) * 100
 
-  if verbose:
-    plt.plot(s)
-    plt.plot([i, j], [s[i], s[j]], 'o', color='Red', markersize=10)
-    plt.show()
+    if verbose:
+        plt.plot(s)
+        plt.plot([i, j], [s[i], s[j]], 'o', color='Red', markersize=10)
+        plt.show()
 
-  return mdd, i, j
+    return mdd, i, j
+
+def sharpe_ratio(cash):
+
+    # Compute daily change in cash
+    portfolio_returns = np.diff(cash)
+
+    # Calculate the annualized average return and standard deviation of the portfolio
+    average_annual_return = np.mean(portfolio_returns) * len(portfolio_returns)
+    annualized_standard_deviation = np.std(portfolio_returns) * np.sqrt(len(portfolio_returns))
+
+    # risk-free rate of 3%
+    risk_free_rate = 0.03
+
+    # Calculate the Sharpe Ratio
+    sharpe_ratio = (average_annual_return - risk_free_rate) / annualized_standard_deviation
+
+    return sharpe_ratio
