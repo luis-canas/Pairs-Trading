@@ -1,6 +1,6 @@
 
 import pprint
-from utils.utils import date_string,max_drawdown
+from utils.utils import date_string,max_drawdown,sharpe_ratio
 
 
 class Portfolio:
@@ -43,15 +43,19 @@ class Portfolio:
 
             roi = (simulation['portfolio_value'][-1]/(simulation['portfolio_value'][0])-1) * 100
             mdd,_,_=max_drawdown(simulation['cash'])
+            sr=sharpe_ratio(simulation['cash'])
             self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]={}
             self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]['roi']=roi
             self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]['mdd']=mdd
+            self.evaluation[simulation["trading_start"]+'/'+simulation["trading_end"]]['sr']=sr
 
         roi = (total_portfolio_value[-1]/(total_portfolio_value[0])-1) * 100
         mdd,_,_=max_drawdown(total_cash)
+        sr=sharpe_ratio(total_cash)
 
         self.evaluation["total_roi"]=roi
         self.evaluation["total_mdd"]=mdd
+        self.evaluation["total_sr"]=sr
 
 
 
