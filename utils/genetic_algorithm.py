@@ -280,11 +280,11 @@ class SaxObjectives(ElementwiseProblem):
                 # short rental costs are applied daily!
                 # means there's an open position
                 if position != CLOSE_POSITION:
-                    cash_in_hand -= self.short_costs_per_day
+                    cash_in_hand[day] -= self.short_costs_per_day
 
 
             if position!=CLOSE_POSITION:
-                position,cash_in_hand[day+1],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
+                position,cash_in_hand[day+1],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day+1],self.c2[day+1])
 
         # constraints
         # size of the pattern must be lower or equal than size of the window
