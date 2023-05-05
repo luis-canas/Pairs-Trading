@@ -346,7 +346,7 @@ class SaxObjectives(ElementwiseProblem):
 
 
             sale_value = stocks_in_hand[0] * c1_day + stocks_in_hand[1] * c2_day
-            cash_in_hand += sale_value(1-2*self.fixed_costs_per_trade)
+            cash_in_hand += sale_value*(1-2*self.fixed_costs_per_trade)
             # both positions were closed
             stocks_in_hand[0] = stocks_in_hand[1] = 0
 
