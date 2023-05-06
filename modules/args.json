@@ -28,6 +28,9 @@
         "w_size": 252,
         "alphabet_size": 10
     },
+    "FA": {
+
+    },
     "TRADING": {
         "commission": 0.08,
         "market_impact": 0.2,

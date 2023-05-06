@@ -16,6 +16,9 @@ from utils.symbolic_aggregate_approximation import pattern_distance, find_patter
 
 from utils.genetic_algorithm import SaxObjectives
 
+import xgboost as xgb
+from sklearn.model_selection import GridSearchCV
+
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
 CLOSE_INACTIVITY = 252
@@ -212,6 +215,65 @@ class TradingPhase:
         trade_array = pd.Series(data=num_units.values)
 
         return trade_array
+
+    def __forecasting_algorithm(self, spread_train, spread_full, spread_test, c1_train, c2_train,c1_test,c2_test,FIXED_VALUE = 1000, commission = 0.08,  market_impact=0.2, short_loan=1,
+                gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, **kwargs):
+        
+        # Create lagged variables
+        x_train = spread_train
+        y_train = spread_train.shift(-1)
+        x_train,y_train=x_train[:-1],y_train[:-1]
+        x_test = spread_test
+        y_test = spread_test.shift(-1)
+        x_test,y_test=x_test[:-1],y_test[:-1]
+
+        eval_set=[(x_train, y_train), (x_test, y_test)]
+
+        parameters = {
+        'n_estimators': [400],
+        'learning_rate': [0.05],
+        'max_depth': [8],
+        'gamma': [0.005],
+        'random_state': [42]
+        }
+
+        model = xgb.XGBRegressor(objective='reg:squarederror',  verbose=False)
+        clf = GridSearchCV(model, parameters)
+        clf.fit(x_train, y_train, eval_set=eval_set,  verbose=False, eval_metric = ["rmse"])
+
+        model = xgb.XGBRegressor(**clf.best_params_, objective='reg:squarederror')
+        model.fit(x_train, y_train, eval_set=eval_set, verbose=False, early_stopping_rounds=5, eval_metric = ["rmse"])
+
+        spread=spread_test
+        pred_spread= model.predict(x_test)
+
+        decision_array = pd.Series([np.nan for i in range(len(spread))])
+
+        # define trading costs
+        fixed_costs_per_trade = (commission + market_impact) / 100  # remove percentage
+        short_costs_per_day = FIXED_VALUE * (short_loan / NB_TRADING_DAYS) / 100  # remove percentage
+
+        # each play requires 2*(long+short) operations = 4 chargeable operations
+        # as each play only lasts 1 day, the short loan costs = 1 * short_costs_per_day
+        transaction_costs = 4 * fixed_costs_per_trade + short_costs_per_day
+
+        for day in range(len(spread)):
+
+            delta = pred_spread[day] - spread[day]
+            
+
+            if np.abs(delta) > transaction_costs: # good to trade
+                if delta < 0: # short spread
+                    decision_array[day] = SHORT_SPREAD
+                if delta > 0: # long spread
+                    decision_array[day] = LONG_SPREAD
+            else:
+                decision_array[day] = CLOSE_POSITION
+            
+        decision_array[-1] = CLOSE_POSITION
+        
+        return decision_array
+
 
     def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train,c1_test,c2_test,
               gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, **kwargs):
@@ -425,7 +487,7 @@ class TradingPhase:
     def run_simulation(self, model):
 
         # Select function
-        function = {'TH': self.__threshold, 'SAX': self.__sax}
+        function = {'TH': self.__threshold, 'SAX': self.__sax,'FA':self.__forecasting_algorithm}
 
         # Select function arguments
         args = load_args(model)
