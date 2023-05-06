@@ -197,13 +197,13 @@ class SaxObjectives(ElementwiseProblem):
         pattern_ub = [alphabet_size-1]*MAX_SIZE
 
         # join bounds
-        x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
+        xl = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
         xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
 
         super().__init__(n_var=4*CHROMOSSOME_SIZE,
                          n_obj=1,
                          n_constr=4,
-                         xl=x1,
+                         xl=xl,
                          xu=xu,
                          vtype=float)
 
