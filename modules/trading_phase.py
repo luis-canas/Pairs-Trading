@@ -243,22 +243,22 @@ class TradingPhase:
         # extract chromossomes
         long_genes = x[:ENTER_LONG]
         dist_long, word_size_long, window_size_long, pattern_long = long_genes[0], round(
-            long_genes[1]), round(long_genes[2]), np.round(long_genes[3:])
+            long_genes[1]), round(long_genes[2]), np.round(long_genes[4:])
         pattern_long = pattern_long[:word_size_long]
 
         exit_long_genes = x[ENTER_LONG:EXIT_LONG]
         dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long = exit_long_genes[0], round(
-            exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
+            exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
         pattern_exit_long = pattern_exit_long[:word_size_exit_long]
 
         short_genes = x[EXIT_LONG:ENTER_SHORT]
         dist_short, word_size_short, window_size_short, pattern_short = short_genes[0], round(
-            short_genes[1]), round(short_genes[2]), np.round(short_genes[3:])
+            short_genes[1]), round(short_genes[2]), np.round(short_genes[4:])
         pattern_short = pattern_short[:word_size_short]
 
         exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
         dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short = exit_short_genes[0], round(
-            exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[3:])
+            exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[4:])
         pattern_exit_short = pattern_exit_short[:word_size_exit_short]
 
         # From full spread get start of the test set
