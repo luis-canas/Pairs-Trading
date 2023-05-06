@@ -299,7 +299,7 @@ class SaxObjectives(ElementwiseProblem):
         roi=(cash_in_hand[-1]/(cash_in_hand[0])-1) * 100
         mdd,_,_=max_drawdown(cash_in_hand)
         # Set the fitness value to the total earnings
-        out["F"] = -roi/mdd
+        out["F"] = -cash_in_hand[-1]
 
     def _get_patterns(self,position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
         
