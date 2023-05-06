@@ -199,13 +199,13 @@ class SaxObjectives(ElementwiseProblem):
         pattern_ub = [alphabet_size-1]*MAX_SIZE
 
         # join bounds
-        x1 = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
+        xl = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
         xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
 
         super().__init__(n_var=4*CHROMOSSOME_SIZE,
                          n_obj=1,
                          n_constr=4,
-                         xl=x1,
+                         xl=xl,
                          xu=xu,
                          vtype=float)
 
@@ -242,7 +242,8 @@ class SaxObjectives(ElementwiseProblem):
 
             # Slide a window along the time series and convert to SAX, except last day where we close position
             for day in range(1,len(self.spread)-1):
-
+                
+                cash_in_hand[day]=cash_in_hand[day-1]  
                 long_sax_seq,short_sax_seq=self._get_patterns(position,self.spread[:day+1],self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
 
                 # Apply the buy and sell rules
