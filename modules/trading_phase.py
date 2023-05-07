@@ -11,8 +11,8 @@ from pymoo.operators.mutation.pm import PolynomialMutation
 
 from pymoo.optimize import minimize
 
-from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args
-from utils.symbolic_aggregate_approximation import pattern_distance, find_pattern
+from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions
+from utils.symbolic_aggregate_approximation import pattern_distance
 
 from utils.genetic_algorithm import SaxObjectives
 
@@ -175,7 +175,7 @@ class TradingPhase:
 
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
 
-    def __threshold(self, spread_full, spread_test, entry=2, close=0, **kwargs):
+    def __threshold(self, spread_full, spread_test, entry=2, close=0,plot=True, **kwargs):
 
         # Norm spread
         spread, _, _, _ = compute_zscore(spread_full, spread_test)
@@ -213,6 +213,10 @@ class TradingPhase:
         # concatenation of both arrays in a single decision array
         num_units = num_units_long + num_units_short
         trade_array = pd.Series(data=num_units.values)
+        trade_array.iloc[-1]=CLOSE_POSITION
+
+        if plot:
+            plot_positions(spread,trade_array)
 
         return trade_array
 
@@ -276,7 +280,7 @@ class TradingPhase:
 
 
     def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train,c1_test,c2_test,
-              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, **kwargs):
+              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True,plot=True, **kwargs):
 
         # Build genetic algorithm
         algorithm = GA(pop_size=pop,
@@ -295,7 +299,7 @@ class TradingPhase:
         # Define chromossomes intervals
         x = results.X
         MAX_SIZE = w_size
-        NON_PATTERN_SIZE = 1+1+1
+        NON_PATTERN_SIZE = 1+1+1+1
         CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
         ENTER_LONG = CHROMOSSOME_SIZE
         EXIT_LONG = 2*CHROMOSSOME_SIZE
@@ -304,19 +308,19 @@ class TradingPhase:
 
         # extract chromossomes
         long_genes = x[:ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), np.round(long_genes[3:])
+        dist_long,word_size_long ,window_size_long,days_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), round(long_genes[3]), np.round(long_genes[4:])
         pattern_long=pattern_long[:word_size_long]
 
         exit_long_genes = x[ENTER_LONG:EXIT_LONG]
-        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
         pattern_exit_long=pattern_exit_long[:word_size_exit_long]
 
         short_genes = x[EXIT_LONG:ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),np.round(short_genes[3:])
+        dist_short,word_size_short ,window_size_short, days_short,pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),round(long_genes[3]), np.round(short_genes[4:])
         pattern_short=pattern_short[:word_size_short]
 
         exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
-        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[3:])
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[4:])
         pattern_exit_short=pattern_exit_short[:word_size_exit_short]
 
         # From full spread get start of the test set
@@ -331,6 +335,7 @@ class TradingPhase:
         position = CLOSE_POSITION
         l_dist = 0
         s_dist = 0
+        day_count=0
 
         for day in range(len(spread_test)-1):
 
@@ -352,27 +357,36 @@ class TradingPhase:
                 # LONG SPREAD
                 if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist < s_dist)):
                     position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
+                    l_dist=s_dist = 0
 
                 elif s_dist < dist_short:  # SHORT SPREAD
                     position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
+                    l_dist=s_dist = 0
 
             elif position == LONG_SPREAD:
                 if long_sax_seq is not None:
                     l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
-                    if l_dist > dist_exit_long:
-                        position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                        l_dist, s_dist = np.inf, np.inf
+                if l_dist > dist_exit_long or day_count>days_long:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist=s_dist = np.inf
+                    day_count=0
 
             elif position == SHORT_SPREAD:
                 if short_sax_seq is not None:
                     s_dist = pattern_distance(
                         short_sax_seq, pattern_exit_short)
-                    if s_dist > dist_exit_short:
-                        position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                        l_dist, s_dist = np.inf, np.inf
+                if s_dist > dist_exit_short or day_count>days_short:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist=s_dist = np.inf
+                    day_count=0
+            if position != CLOSE_POSITION:
+                day_count+=1
 
         # completes the array by propagating the last valid observation
         trade_array = trade_array.fillna(method='ffill')
+
+        if plot:
+            plot_positions(spread_test,trade_array)
 
         return trade_array
     

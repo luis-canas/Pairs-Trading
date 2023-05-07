@@ -338,3 +338,43 @@ def sharpe_ratio(cash):
     sharpe_ratio = (average_annual_return - risk_free_rate) / annualized_standard_deviation
 
     return sharpe_ratio
+
+def plot_positions(spread, positions):
+
+    LONG_SPREAD = 1
+    SHORT_SPREAD = -1
+    CLOSE_POSITION = 0
+
+    def first_occurrences(arr, val):
+        mask = (arr == val).astype(int)
+        diff = np.diff(mask)
+        return np.where(diff == 1)[0] + 1
+    
+    fig, ax = plt.subplots(figsize=(15,8))
+
+    ax.plot(spread, label='Normalized Spread')
+
+    long_entries = first_occurrences(positions,LONG_SPREAD)
+
+    if len(long_entries) > 0:
+        ax.scatter(long_entries, spread[long_entries], marker='^', color='g', label='Long Entry',s=100)
+
+    short_entries = first_occurrences(positions,SHORT_SPREAD)
+
+    if len(short_entries) > 0:
+        ax.scatter(short_entries, spread[short_entries], marker='v', color='b', label='Short Entry',s=100)
+
+    exits = first_occurrences(positions,CLOSE_POSITION)
+
+    if len(exits) > 0:
+        ax.scatter(exits, spread[exits], marker='o', color='r', label='Exit',s=100)
+
+
+
+
+
+    ax.legend()
+    ax.set_xlabel('Day')
+    ax.set_ylabel('Normalized Spread')
+
+    plt.show()
