@@ -552,8 +552,8 @@ class TradingPhase:
                        eliminate_duplicates=True)
 
         # Get objective function
-        sax_ga = SaxObjectives(spread=spread_test.to_numpy(), c1=c1_test.to_numpy(
-        ), c2=c2_test.to_numpy(), window_size=w_size,alphabet_size=alphabet_size,DAYS_CLOSE=DAYS_CLOSE,FIXED_VALUE=FIXED_VALUE,commission=commission,  market_impact=market_impact, short_loan=short_loan)
+        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
+        ), c2=c2_train.to_numpy(), window_size=w_size,alphabet_size=alphabet_size,DAYS_CLOSE=DAYS_CLOSE,FIXED_VALUE=FIXED_VALUE,commission=commission,  market_impact=market_impact, short_loan=short_loan)
 
         # Optimize patterns
         results = minimize(sax_ga, algorithm, ("n_gen", gen),
@@ -611,7 +611,7 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
 
-            long_sax_seq, short_sax_seq = sax_ga._get_patterns(position, spread_test[:day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
+            long_sax_seq, short_sax_seq = sax_ga._get_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
                                                                word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
 
             # Apply the buy and sell rules
@@ -767,7 +767,7 @@ class TradingPhase:
     def run_simulation(self, model):
 
         # Select function
-        function = {'TH': self.__threshold, 'SAX': self.__sax,
+        function = {'TH': self.__threshold, 'SAX': self.__sax_ga,
                     'FA': self.__forecasting_algorithm}
 
         # Select function arguments
