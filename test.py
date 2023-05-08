@@ -64,30 +64,36 @@ def simple_pattern__test():
     plt.show()
 
 def pattern_distance_test():
+    
     word_size=20
-    alphabet_size=20
+    alphabet_size=5
 
-    np.random.seed(1)
     # Set the duration and frequency of the sine wave
     duration = 1.5  # seconds
     freq = 1  # Hz
-
+    num=int(duration*100)
     # Create a time vector
-    t = np.linspace(0, duration, num=int(duration*100))
-    
-
-
+    t = np.linspace(0, duration, num=num)
     # Generate the sine wave
-    y = np.sin(2 * np.pi * freq * t)
+    y = np.cos(2 * np.pi * freq * t)
+    yc=np.sin(2 * np.pi * freq * t)
 
-    y2=np.sin(3 * np.pi * freq * t)
 
-    symbols1,_=find_pattern(y,word_size,alphabet_size)
-    symbols2,_=find_pattern(y,word_size,alphabet_size)
+    np.random.seed(1)
+    n = np.random.normal(scale=5, size=y.size)
+    y1 = 100 * y +n
+    np.random.seed(100)
+    n = np.random.normal(scale=100, size=y.size)
+    y2 = n
+
+    window_size=len(y)
+
+    symbols1,_=find_pattern(y1,word_size,alphabet_size)
+    symbols2,_=find_pattern(y2,word_size,alphabet_size)
     print(symbols1,symbols2)
     print(pattern_distance(symbols1,symbols2))
-    print(min_dist(symbols1,symbols2,alphabet_size,len(symbols1)/word_size))
+    print(min_dist(symbols1,symbols2,alphabet_size,window_size/word_size))
 
 
 
-simple_pattern__test()
+pattern_distance_test()
