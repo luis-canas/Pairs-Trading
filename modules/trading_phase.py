@@ -16,7 +16,7 @@ from pymoo.optimize import minimize
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args, plot_positions
 from utils.symbolic_aggregate_approximation import pattern_distance,get_best_distance,get_best_patterns
 
-from utils.genetic_algorithm import SaxObjectives
+from utils.genetic_algorithm import SaxObjectives,SaxObjectivesGA
 
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
@@ -552,7 +552,7 @@ class TradingPhase:
                        eliminate_duplicates=True)
 
         # Get objective function
-        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
+        sax_ga = SaxObjectivesGA(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
         ), c2=c2_train.to_numpy(), window_size=w_size,alphabet_size=alphabet_size,DAYS_CLOSE=DAYS_CLOSE,FIXED_VALUE=FIXED_VALUE,commission=commission,  market_impact=market_impact, short_loan=short_loan)
 
         # Optimize patterns
@@ -658,116 +658,10 @@ class TradingPhase:
 
         return trade_array
 
-
-    # def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train,
-    #           gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, **kwargs):
-
-    #     # Build genetic algorithm
-    #     algorithm = GA(pop_size=pop,
-    #                    crossover=PointCrossover(prob=1, n_points=8),
-    #                    mutation=PolynomialMutation(prob=0.1),
-    #                    eliminate_duplicates=True)
-
-    #     # Get objective function
-    #     sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
-    #     ), c2=c2_train.to_numpy(), window_size=w_size,alphabet_size=alphabet_size)
-
-    #     # Optimize patterns
-    #     results = minimize(sax_ga, algorithm, ("n_gen", gen),
-    #                        seed=1, save_history=True, verbose=verbose)
-
-    #     # Define chromossomes intervals
-    #     x = results.X
-    #     MAX_SIZE = w_size
-    #     NON_PATTERN_SIZE = 1+1+1
-    #     CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
-    #     ENTER_LONG = CHROMOSSOME_SIZE
-    #     EXIT_LONG = 2*CHROMOSSOME_SIZE
-    #     ENTER_SHORT = 3*CHROMOSSOME_SIZE
-    #     EXIT_SHORT = 4*CHROMOSSOME_SIZE
-
-    #     # extract chromossomes
-    #     long_genes = x[:ENTER_LONG]
-    #     dist_long, word_size_long, window_size_long, pattern_long = long_genes[0], round(
-    #         long_genes[1]), round(long_genes[2]), np.round(long_genes[3:])
-    #     pattern_long = pattern_long[:word_size_long]
-
-    #     exit_long_genes = x[ENTER_LONG:EXIT_LONG]
-    #     dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long = exit_long_genes[0], round(
-    #         exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[3:])
-    #     pattern_exit_long = pattern_exit_long[:word_size_exit_long]
-
-    #     short_genes = x[EXIT_LONG:ENTER_SHORT]
-    #     dist_short, word_size_short, window_size_short, pattern_short = short_genes[0], round(
-    #         short_genes[1]), round(short_genes[2]), np.round(short_genes[3:])
-    #     pattern_short = pattern_short[:word_size_short]
-
-    #     exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]
-    #     dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short = exit_short_genes[0], round(
-    #         exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[3:])
-    #     pattern_exit_short = pattern_exit_short[:word_size_exit_short]
-
-    #     # From full spread get start of the test set
-    #     spread = spread_full.to_numpy()
-    #     i = spread_test.index[0]
-    #     offset = spread_full.index.get_loc(i)
-
-    #     # Init trade array and trade variables
-    #     trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-    #     trade_array.iloc[0],trade_array.iloc[-1] = CLOSE_POSITION,CLOSE_POSITION
-    #     stabilizing_threshold = 5
-    #     position = CLOSE_POSITION
-    #     l_dist = 0
-    #     s_dist = 0
-
-    #     for day in range(len(spread_test)-1):
-
-    #         # Wait for spread to stabilize
-    #         if day < stabilizing_threshold:
-    #             continue
-
-    #         long_sax_seq, short_sax_seq = sax_ga._get_patterns(position, spread[:offset+day+1], alphabet_size, word_size_long, window_size_long,
-    #                                                            word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
-
-    #         # Apply the buy and sell rules
-    #         if position == CLOSE_POSITION:
-
-    #             if long_sax_seq is not None:
-    #                 l_dist = pattern_distance(long_sax_seq, pattern_long)
-    #             if short_sax_seq is not None:
-    #                 s_dist = pattern_distance(short_sax_seq, pattern_short)
-
-    #             # LONG SPREAD
-    #             if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist < s_dist)):
-    #                 position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
-
-    #             elif s_dist < dist_short:  # SHORT SPREAD
-    #                 position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
-
-    #         elif position == LONG_SPREAD:
-    #             if long_sax_seq is not None:
-    #                 l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
-    #                 if l_dist > dist_exit_long:
-    #                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-    #                     l_dist, s_dist = np.inf, np.inf
-
-    #         elif position == SHORT_SPREAD:
-    #             if short_sax_seq is not None:
-    #                 s_dist = pattern_distance(
-    #                     short_sax_seq, pattern_exit_short)
-    #                 if s_dist > dist_exit_short:
-    #                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-    #                     l_dist, s_dist = np.inf, np.inf
-
-    #     # completes the array by propagating the last valid observation
-    #     trade_array = trade_array.fillna(method='ffill')
-
-    #     return trade_array
-
     def run_simulation(self, model):
 
         # Select function
-        function = {'TH': self.__threshold, 'SAX': self.__sax_ga,
+        function = {'TH': self.__threshold, 'SAX': self.__sax,
                     'FA': self.__forecasting_algorithm}
 
         # Select function arguments
