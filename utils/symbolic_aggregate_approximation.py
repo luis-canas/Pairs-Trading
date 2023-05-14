@@ -115,6 +115,7 @@ def min_dist(str1, str2, alphabet_size, compression_ratio):
 
     return dist
 
+
 def get_best_patterns(position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
     
     LONG_SPREAD = 1
@@ -126,32 +127,64 @@ def get_best_patterns(position,spread,alphabet,word_size_long ,window_size_long,
 
     for idx in range(n):
         if position==CLOSE_POSITION:
+            
+            long_sax_seq, _ = find_pattern(spread[-window_size_long[idx]:], word_size_long[idx], alphabet)
+            long_sax_seq_list.append(long_sax_seq)
 
-            if window_size_long[idx]<=len(spread):
-                long_sax_seq, _ = find_pattern(spread[-window_size_long[idx]:], word_size_long[idx], alphabet)
-                long_sax_seq_list.append(long_sax_seq)
-            else:
-                long_sax_seq_list.append(None)
-            if window_size_short[idx]<=len(spread):
-                short_sax_seq, _ = find_pattern(spread[-window_size_short[idx]:], word_size_short[idx], alphabet)
-                short_sax_seq_list.append(short_sax_seq)
-            else:
-                short_sax_seq_list.append(None)
+            short_sax_seq, _ = find_pattern(spread[-window_size_short[idx]:], word_size_short[idx], alphabet)
+            short_sax_seq_list.append(short_sax_seq)
+
 
         elif position == LONG_SPREAD:
-            if window_size_exit_long[idx]<=len(spread):
-                long_sax_seq, _ = find_pattern(spread[-window_size_exit_long[idx]:], word_size_exit_long[idx], alphabet)
-                long_sax_seq_list.append(long_sax_seq)
-            else:
-                long_sax_seq_list.append(None)
+
+            long_sax_seq, _ = find_pattern(spread[-window_size_exit_long[idx]:], word_size_exit_long[idx], alphabet)
+            long_sax_seq_list.append(long_sax_seq)
+
+
         elif position == SHORT_SPREAD:
-            if window_size_exit_short[idx]<=len(spread):
-                short_sax_seq, _ = find_pattern(spread[-window_size_exit_short[idx]:], word_size_exit_short[idx], alphabet)
-                short_sax_seq_list.append(short_sax_seq)
-            else:
-                short_sax_seq_list.append(None)
+
+            short_sax_seq, _ = find_pattern(spread[-window_size_exit_short[idx]:], word_size_exit_short[idx], alphabet)
+            short_sax_seq_list.append(short_sax_seq)
+
     return long_sax_seq_list,short_sax_seq_list
 
+
+# def get_best_patterns(position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
+    
+#     LONG_SPREAD = 1
+#     SHORT_SPREAD = -1
+#     CLOSE_POSITION = 0
+
+#     n=len(word_size_long)
+#     long_sax_seq_list,short_sax_seq_list= [],[]
+
+#     for idx in range(n):
+#         if position==CLOSE_POSITION:
+
+#             if window_size_long[idx]<=len(spread):
+#                 long_sax_seq, _ = find_pattern(spread[-window_size_long[idx]:], word_size_long[idx], alphabet)
+#                 long_sax_seq_list.append(long_sax_seq)
+#             else:
+#                 long_sax_seq_list.append(None)
+#             if window_size_short[idx]<=len(spread):
+#                 short_sax_seq, _ = find_pattern(spread[-window_size_short[idx]:], word_size_short[idx], alphabet)
+#                 short_sax_seq_list.append(short_sax_seq)
+#             else:
+#                 short_sax_seq_list.append(None)
+
+#         elif position == LONG_SPREAD:
+#             if window_size_exit_long[idx]<=len(spread):
+#                 long_sax_seq, _ = find_pattern(spread[-window_size_exit_long[idx]:], word_size_exit_long[idx], alphabet)
+#                 long_sax_seq_list.append(long_sax_seq)
+#             else:
+#                 long_sax_seq_list.append(None)
+#         elif position == SHORT_SPREAD:
+#             if window_size_exit_short[idx]<=len(spread):
+#                 short_sax_seq, _ = find_pattern(spread[-window_size_exit_short[idx]:], word_size_exit_short[idx], alphabet)
+#                 short_sax_seq_list.append(short_sax_seq)
+#             else:
+#                 short_sax_seq_list.append(None)
+#     return long_sax_seq_list,short_sax_seq_list
 
 def get_best_distance(sax_seq_list,pattern,distances):
     
@@ -160,16 +193,36 @@ def get_best_distance(sax_seq_list,pattern,distances):
     dist=np.full(n, np.inf)
 
     for idx in range(n):
-        if sax_seq_list[idx] is not None:
-            d = pattern_distance(sax_seq_list[idx], pattern[idx])
-
-            if d<distances[idx]: 
-                dist[idx]=d
+        d = pattern_distance(sax_seq_list[idx], pattern[idx])
+        dist[idx]=d
 
 
-    
     min_idx = np.argmin(dist)
     min_dist = np.min(dist)
 
+    max_idx = np.argmax(dist)
+    max_dist = np.max(dist)
 
-    return min_dist,min_idx
+
+    return min_dist,min_idx,max_dist,max_idx
+
+# def get_best_distance(sax_seq_list,pattern,distances):
+    
+#     n=len(pattern)
+
+#     dist=np.full(n, np.inf)
+
+#     for idx in range(n):
+#         if sax_seq_list[idx] is not None:
+#             d = pattern_distance(sax_seq_list[idx], pattern[idx])
+
+#             if d<distances[idx]: 
+#                 dist[idx]=d
+
+
+    
+#     min_idx = np.argmin(dist)
+#     min_dist = np.min(dist)
+
+
+#     return min_dist,min_idx

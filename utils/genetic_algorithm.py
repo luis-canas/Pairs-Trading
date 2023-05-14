@@ -159,6 +159,7 @@ class PairFormationObjectives(ElementwiseProblem):
 
         return spread.std()
 
+
 class SaxObjectives(ElementwiseProblem):
 
     def __init__(self, spread, c1, c2, window_size,alphabet_size,DAYS_CLOSE=252,objectives=["ROI","MDD","SR"],FIXED_VALUE=1000,commission=0.08,  market_impact=0.2, short_loan=1):
