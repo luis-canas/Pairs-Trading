@@ -204,7 +204,8 @@ def get_best_distance(sax_seq_list,pattern,distances):
     max_dist = np.max(dist)
 
 
-    return min_dist,min_idx,max_dist,max_idx
+    return min_dist,min_idx
+
 
 # def get_best_distance(sax_seq_list,pattern,distances):
     
