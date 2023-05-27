@@ -116,7 +116,7 @@ def min_dist(str1, str2, alphabet_size, compression_ratio):
     return dist
 
 
-def get_best_patterns(position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
+def get_best_patterns(position,spread,alphabet,word_size_long =None,window_size_long=None,word_size_exit_long=None ,window_size_exit_long=None,word_size_short =None,window_size_short=None, word_size_exit_short =None,window_size_exit_short=None):
     
     LONG_SPREAD = 1
     SHORT_SPREAD = -1
@@ -204,7 +204,7 @@ def get_best_distance(sax_seq_list,pattern,distances):
     max_dist = np.max(dist)
 
 
-    return min_dist,min_idx
+    return min_dist,min_idx,max_dist,max_idx
 
 
 # def get_best_distance(sax_seq_list,pattern,distances):

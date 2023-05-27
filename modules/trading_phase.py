@@ -349,6 +349,7 @@ class TradingPhase:
         position = CLOSE_POSITION
         l_dist = s_dist = np.inf
         day_count = 0
+        prev_idx=0
 
         for day in range(len(spread_test)-1):
 
@@ -364,28 +365,30 @@ class TradingPhase:
             if position == CLOSE_POSITION:
 
    
-                l_dist,l_idx = get_best_distance(long_sax_seq, pattern_long,dist_long)
-                s_dist,s_idx = get_best_distance(short_sax_seq, pattern_short,dist_short)
+                l_dist,l_idx,l_distm,l_idxm = get_best_distance(long_sax_seq, pattern_long,dist_long)
+                s_dist,s_idx,s_distm,s_idxm = get_best_distance(short_sax_seq, pattern_short,dist_short)
 
                 # LONG SPREAD
                 if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
                     position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
                     l_dist = s_dist = np.inf
+                    prev_idx=l_idx
 
                 elif s_dist < dist_short[s_idx]:  # SHORT SPREAD
                     position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
                     l_dist = s_dist = np.inf
+                    prev_idx=s_idx
 
             elif position == LONG_SPREAD:
 
-                if day_count > days_long[l_idx]:
+                if day_count > days_long[l_idx] or s_distm<dist_short[s_idxm]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     day_count = 0
                     
 
             elif position == SHORT_SPREAD:
 
-                if day_count > days_short[s_idx]:
+                if day_count > days_short[s_idx] or l_distm<dist_short[l_idxm]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     day_count = 0
    

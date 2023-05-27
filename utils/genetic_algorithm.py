@@ -197,12 +197,12 @@ class SaxObjectives(ElementwiseProblem):
         pattern_ub = [alphabet_size-1]*MAX_SIZE
 
         # join bounds
-        xl = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
-        xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
+        xl = np.tile(np.concatenate((variables_lb, pattern_lb)), 2)
+        xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 2)
 
-        super().__init__(n_var=4*CHROMOSSOME_SIZE,
+        super().__init__(n_var=2*CHROMOSSOME_SIZE,
                          n_obj=len(objectives),
-                         n_constr=4,
+                         n_constr=2,
                          xl=xl,
                          xu=xu,
                          vtype=float)
@@ -248,17 +248,19 @@ class SaxObjectives(ElementwiseProblem):
 
                     if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
                         position,cash_in_hand[day],stocks_in_hand=self._trade_decision(LONG_SPREAD,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
-                        l_dist=s_dist=0
+                        l_dist=s_dist=np.inf
                         frequency+=1
                     elif s_dist < dist_short:  # SHORT SPREAD
                         position,cash_in_hand[day],stocks_in_hand=self._trade_decision(SHORT_SPREAD,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
-                        l_dist=s_dist=0
+                        l_dist=s_dist=np.inf
                         frequency+=1
 
                 elif position == LONG_SPREAD:
-                    # if short_sax_seq is not None:
-                    #     l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
-                    if day_count>days_long:
+
+                    if short_sax_seq is not None:
+                        s_dist = pattern_distance(short_sax_seq, pattern_short)
+ 
+                    if day_count>days_long or s_dist<dist_short:
                         position,cash_in_hand[day],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
                         l_dist=s_dist=np.inf
                         day_count=0
@@ -266,9 +268,11 @@ class SaxObjectives(ElementwiseProblem):
 
 
                 elif position == SHORT_SPREAD:
-                    # if long_sax_seq is not None:
-                    #     s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
-                    if day_count>days_short:
+                    
+                    if long_sax_seq is not None:
+                        l_dist = pattern_distance(long_sax_seq, pattern_long)
+
+                    if day_count>days_short or l_dist<dist_long:
                         position,cash_in_hand[day],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
                         l_dist=s_dist=np.inf
                         day_count=0
