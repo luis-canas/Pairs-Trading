@@ -14,9 +14,9 @@ from pymoo.operators.mutation.pm import PolynomialMutation
 from pymoo.optimize import minimize
 
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args, plot_positions
-from utils.symbolic_aggregate_approximation import pattern_distance,get_best_distance,get_best_patterns
+from utils.symbolic_aggregate_approximation import pattern_distance, get_best_distance, get_best_patterns
 
-from utils.genetic_algorithm import SaxObjectivesLS,SaxObjectivesGA,SaxObjectives
+from utils.genetic_algorithm import SaxObjectivesLS, SaxObjectivesGA, SaxObjectives
 
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
@@ -284,23 +284,157 @@ class TradingPhase:
 
         return decision_array
 
-    def __sax_ls(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
-              objectives=["ROI","MDD","SR"],DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
+
+    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
+              objectives=["ROI", "MDD", "SR"], DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
               gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
 
         ref_dirs = get_reference_directions(
             "energy", len(objectives), pop, seed=1)
-        
+
         # Build genetic algorithm
         algorithm = NSGA2(pop_size=pop,
-                       crossover=PointCrossover(prob=1, n_points=4),
-                       mutation=PolynomialMutation(prob=0.1),
-                       eliminate_duplicates=True,
-                       ref_dirs=ref_dirs)
+                          crossover=PointCrossover(prob=1, n_points=8),
+                          mutation=PolynomialMutation(prob=0.1),
+                          eliminate_duplicates=True,
+                          ref_dirs=ref_dirs)
 
         # Get objective function
         sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
-                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan,objectives=objectives)
+                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan, objectives=objectives)
+
+        # Optimize patterns
+        results = minimize(sax_ga, algorithm, ("n_gen", gen),
+                           seed=1, save_history=True, verbose=verbose)
+
+        # Define chromossomes intervals
+        x = results.X
+
+        MAX_SIZE = w_size
+        NON_PATTERN_SIZE = 1+1+1+1
+        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
+        ENTER_LONG = CHROMOSSOME_SIZE
+        EXIT_LONG = 2*CHROMOSSOME_SIZE
+        ENTER_SHORT = 3*CHROMOSSOME_SIZE
+        EXIT_SHORT = 4*CHROMOSSOME_SIZE
+
+        # create arrays of optimal patterns
+        n = len(x)
+        dist_long, word_size_long, window_size_long, days_long, pattern_long = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
+        dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
+        dist_short, word_size_short, window_size_short, days_short, pattern_short = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
+        dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
+
+        # extract chromossomes
+        for ind, solution in enumerate(x):
+
+            long_genes = solution[:ENTER_LONG]
+            dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], pattern = long_genes[0], round(
+                long_genes[1]), round(long_genes[2]), round(long_genes[3]), np.round(long_genes[4:])
+            pattern_long.append(pattern[:word_size_long[ind]])
+
+            exit_long_genes = solution[ENTER_LONG:EXIT_LONG]
+            dist_exit_long[ind], word_size_exit_long[ind], window_size_exit_long[ind], pattern = exit_long_genes[0], round(
+                exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
+            pattern_exit_long.append(pattern[:word_size_exit_long[ind]])
+
+            short_genes = solution[EXIT_LONG:ENTER_SHORT]
+            dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
+                short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
+            pattern_short.append(pattern[:word_size_short[ind]])
+
+            exit_short_genes = solution[ENTER_SHORT:EXIT_SHORT]
+            dist_exit_short[ind], word_size_exit_short[ind], window_size_exit_short[ind], pattern = exit_short_genes[0], round(
+                exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[4:])
+            pattern_exit_short.append(pattern[:word_size_exit_short[ind]])
+
+        # From full spread get start of the test set
+        spread = spread_full
+        i = spread_test.index[0]
+        offset = spread_full.index.get_loc(i)
+
+        # Init trade array and trade variables
+        trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        trade_array.iloc[0], trade_array.iloc[-1] = CLOSE_POSITION, CLOSE_POSITION
+        stabilizing_threshold = 5
+        position = CLOSE_POSITION
+        l_dist = 0
+        s_dist = 0
+        day_count = 0
+
+        for day in range(len(spread_test)-1):
+
+            # Wait for spread to stabilize
+            if day < stabilizing_threshold:
+                continue
+
+            long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
+                                                            word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
+
+            # Apply the buy and sell rules
+            if position == CLOSE_POSITION:
+
+                l_dist, l_idx = get_best_distance(
+                    long_sax_seq, pattern_long, dist_long)
+                s_dist, s_idx = get_best_distance(
+                    short_sax_seq, pattern_short, dist_short)
+
+                # LONG SPREAD
+                if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
+                    position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
+                    l_dist = s_dist = 0
+
+                elif s_dist < dist_short[s_idx]:  # SHORT SPREAD
+                    position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
+                    l_dist = s_dist = 0
+
+            elif position == LONG_SPREAD:
+                l_dist, l_idx = get_best_distance(
+                    long_sax_seq, pattern_exit_long, dist_exit_long)
+                if l_dist > dist_exit_long[l_idx] or day_count > days_long[l_idx]:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist = s_dist = np.inf
+                    day_count = 0
+
+            elif position == SHORT_SPREAD:
+                s_dist, s_idx = get_best_distance(
+                    short_sax_seq, pattern_exit_short, dist_exit_short)
+                if s_dist > dist_exit_short[s_idx] or day_count > days_short[s_idx]:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist = s_dist = np.inf
+                    day_count = 0
+            if position != CLOSE_POSITION:
+                day_count += 1
+
+        # completes the array by propagating the last valid observation
+        trade_array = trade_array.fillna(method='ffill')
+
+        if plot:
+            plot_positions(spread_test, trade_array)
+
+        return trade_array
+    
+    def __sax_ls(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
+                 objectives=["ROI", "MDD", "SR"], DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
+                 gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
+
+        ref_dirs = get_reference_directions(
+            "energy", len(objectives), pop, seed=1)
+
+        # Build genetic algorithm
+        algorithm = NSGA2(pop_size=pop,
+                          crossover=PointCrossover(prob=1, n_points=4),
+                          mutation=PolynomialMutation(prob=0.1),
+                          eliminate_duplicates=True,
+                          ref_dirs=ref_dirs)
+
+        # Get objective function
+        sax_ga = SaxObjectivesLS(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
+                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan, objectives=objectives)
 
         # Optimize patterns
         results = minimize(sax_ga, algorithm, ("n_gen", gen),
@@ -315,27 +449,25 @@ class TradingPhase:
         ENTER_LONG = CHROMOSSOME_SIZE
         ENTER_SHORT = 2*CHROMOSSOME_SIZE
 
-        #create arrays of optimal patterns
-        n=len(x)
-        dist_long, word_size_long, window_size_long, days_long, pattern_long=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_short, word_size_short, window_size_short, days_short, pattern_short=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-
+        # create arrays of optimal patterns
+        n = len(x)
+        dist_long, word_size_long, window_size_long, days_long, pattern_long = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
+        dist_short, word_size_short, window_size_short, days_short, pattern_short = np.zeros(
+            n), np.zeros(n, dtype=int), np.zeros(n, dtype=int), np.zeros(n, dtype=int), []
 
         # extract chromossomes
-        for ind,solution in enumerate(x):
+        for ind, solution in enumerate(x):
 
             long_genes = solution[:ENTER_LONG]
             dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], pattern = long_genes[0], round(
                 long_genes[1]), round(long_genes[2]), round(long_genes[3]), np.round(long_genes[4:])
             pattern_long.append(pattern[:word_size_long[ind]])
 
-
             short_genes = solution[ENTER_LONG:ENTER_SHORT]
             dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
                 short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
             pattern_short.append(pattern[:word_size_short[ind]])
-
-
 
         # From full spread get start of the test set
         spread = spread_full
@@ -349,7 +481,7 @@ class TradingPhase:
         position = CLOSE_POSITION
         l_dist = s_dist = np.inf
         day_count = 0
-        prev_idx=0
+        prev_idx = 0
 
         for day in range(len(spread_test)-1):
 
@@ -358,40 +490,40 @@ class TradingPhase:
                 continue
 
             long_sax_seq, short_sax_seq = get_best_patterns(position=CLOSE_POSITION, spread=spread[:offset+day+1].to_numpy(), alphabet=alphabet_size,
-                                                            word_size_long= word_size_long,window_size_long= window_size_long,
-                                                            word_size_short= word_size_short,window_size_short= window_size_short)
+                                                            word_size_long=word_size_long, window_size_long=window_size_long,
+                                                            word_size_short=word_size_short, window_size_short=window_size_short)
 
             # Apply the buy and sell rules
             if position == CLOSE_POSITION:
 
-   
-                l_dist,l_idx,l_distm,l_idxm = get_best_distance(long_sax_seq, pattern_long,dist_long)
-                s_dist,s_idx,s_distm,s_idxm = get_best_distance(short_sax_seq, pattern_short,dist_short)
+                l_dist, l_idx, l_distm, l_idxm = get_best_distance(
+                    long_sax_seq, pattern_long, dist_long)
+                s_dist, s_idx, s_distm, s_idxm = get_best_distance(
+                    short_sax_seq, pattern_short, dist_short)
 
                 # LONG SPREAD
                 if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
                     position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
                     l_dist = s_dist = np.inf
-                    prev_idx=l_idx
+                    prev_idx = l_idx
 
                 elif s_dist < dist_short[s_idx]:  # SHORT SPREAD
                     position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
                     l_dist = s_dist = np.inf
-                    prev_idx=s_idx
+                    prev_idx = s_idx
 
             elif position == LONG_SPREAD:
 
-                if day_count > days_long[l_idx] or s_distm<dist_short[s_idxm]:
+                if day_count > days_long[l_idx] or s_distm < dist_short[s_idxm]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     day_count = 0
-                    
 
             elif position == SHORT_SPREAD:
 
-                if day_count > days_short[s_idx] or l_distm<dist_short[l_idxm]:
+                if day_count > days_short[s_idx] or l_distm < dist_short[l_idxm]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     day_count = 0
-   
+
             if position != CLOSE_POSITION:
                 day_count += 1
 
@@ -404,263 +536,10 @@ class TradingPhase:
         return trade_array
 
 
-    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
-              objectives=["ROI","MDD","SR"],DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
-              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
-
-        ref_dirs = get_reference_directions(
-            "energy", len(objectives), pop, seed=1)
-        
-        # Build genetic algorithm
-        algorithm = NSGA2(pop_size=pop,
-                       crossover=PointCrossover(prob=1, n_points=8),
-                       mutation=PolynomialMutation(prob=0.1),
-                       eliminate_duplicates=True,
-                       ref_dirs=ref_dirs)
-
-        # Get objective function
-        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
-                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan,objectives=objectives)
-
-        # Optimize patterns
-        results = minimize(sax_ga, algorithm, ("n_gen", gen),
-                           seed=1, save_history=True, verbose=verbose)
-
-        # Define chromossomes intervals
-        x = results.X
-
-        MAX_SIZE = w_size
-        NON_PATTERN_SIZE = 1+1+1+1
-        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
-        ENTER_LONG = CHROMOSSOME_SIZE
-        EXIT_LONG = 2*CHROMOSSOME_SIZE
-        ENTER_SHORT = 3*CHROMOSSOME_SIZE
-        EXIT_SHORT = 4*CHROMOSSOME_SIZE
-
-        #create arrays of optimal patterns
-        n=len(x)
-        dist_long, word_size_long, window_size_long, days_long, pattern_long=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_short, word_size_short, window_size_short, days_short, pattern_short=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-
-        # extract chromossomes
-        for ind,solution in enumerate(x):
-
-            long_genes = solution[:ENTER_LONG]
-            dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], pattern = long_genes[0], round(
-                long_genes[1]), round(long_genes[2]), round(long_genes[3]), np.round(long_genes[4:])
-            pattern_long.append(pattern[:word_size_long[ind]])
-
-            exit_long_genes = solution[ENTER_LONG:EXIT_LONG]
-            dist_exit_long[ind], word_size_exit_long[ind], window_size_exit_long[ind], pattern = exit_long_genes[0], round(
-                exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
-            pattern_exit_long.append(pattern[:word_size_exit_long[ind]])
-
-            short_genes = solution[EXIT_LONG:ENTER_SHORT]
-            dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
-                short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
-            pattern_short.append(pattern[:word_size_short[ind]])
-
-            exit_short_genes = solution[ENTER_SHORT:EXIT_SHORT]
-            dist_exit_short[ind], word_size_exit_short[ind], window_size_exit_short[ind], pattern = exit_short_genes[0], round(
-                exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[4:])
-            pattern_exit_short.append(pattern[:word_size_exit_short[ind]])
-
-        # From full spread get start of the test set
-        spread = spread_full
-        i = spread_test.index[0]
-        offset = spread_full.index.get_loc(i)
-
-        # Init trade array and trade variables
-        trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-        trade_array.iloc[0], trade_array.iloc[-1] = CLOSE_POSITION, CLOSE_POSITION
-        stabilizing_threshold = 5
-        position = CLOSE_POSITION
-        l_dist = 0
-        s_dist = 0
-        day_count = 0
-
-        for day in range(len(spread_test)-1):
-
-            # Wait for spread to stabilize
-            if day < stabilizing_threshold:
-                continue
-
-            long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
-                                                               word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
-
-            # Apply the buy and sell rules
-            if position == CLOSE_POSITION:
-
-   
-                l_dist,l_idx = get_best_distance(long_sax_seq, pattern_long,dist_long)
-                s_dist,s_idx = get_best_distance(short_sax_seq, pattern_short,dist_short)
-
-                # LONG SPREAD
-                if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
-                    position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
-                    l_dist = s_dist = 0
-
-                elif s_dist < dist_short[s_idx]:  # SHORT SPREAD
-                    position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
-                    l_dist = s_dist = 0
-
-            elif position == LONG_SPREAD:
-                l_dist,l_idx = get_best_distance(long_sax_seq, pattern_exit_long,dist_exit_long)
-                if l_dist > dist_exit_long[l_idx] or day_count > days_long[l_idx]:
-                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                    l_dist = s_dist = np.inf
-                    day_count = 0
-
-            elif position == SHORT_SPREAD:
-                s_dist,s_idx = get_best_distance(short_sax_seq, pattern_exit_short,dist_exit_short)
-                if s_dist > dist_exit_short[s_idx] or day_count > days_short[s_idx]:
-                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                    l_dist = s_dist = np.inf
-                    day_count = 0
-            if position != CLOSE_POSITION:
-                day_count += 1
-
-        # completes the array by propagating the last valid observation
-        trade_array = trade_array.fillna(method='ffill')
-
-        if plot:
-            plot_positions(spread_test, trade_array)
-
-        return trade_array
-
-
-    
-    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
-              objectives=["ROI","MDD","SR"],DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
-              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
-
-        ref_dirs = get_reference_directions(
-            "energy", len(objectives), pop, seed=1)
-        
-        # Build genetic algorithm
-        algorithm = NSGA2(pop_size=pop,
-                       crossover=PointCrossover(prob=1, n_points=8),
-                       mutation=PolynomialMutation(prob=0.1),
-                       eliminate_duplicates=True,
-                       ref_dirs=ref_dirs)
-
-        # Get objective function
-        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
-                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan,objectives=objectives)
-
-        # Optimize patterns
-        results = minimize(sax_ga, algorithm, ("n_gen", gen),
-                           seed=1, save_history=True, verbose=verbose)
-
-        # Define chromossomes intervals
-        x = results.X
-
-        MAX_SIZE = w_size
-        NON_PATTERN_SIZE = 1+1+1+1
-        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
-        ENTER_LONG = CHROMOSSOME_SIZE
-        EXIT_LONG = 2*CHROMOSSOME_SIZE
-        ENTER_SHORT = 3*CHROMOSSOME_SIZE
-        EXIT_SHORT = 4*CHROMOSSOME_SIZE
-
-        #create arrays of optimal patterns
-        n=len(x)
-        dist_long, word_size_long, window_size_long, days_long, pattern_long=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_exit_long, word_size_exit_long, window_size_exit_long, pattern_exit_long=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_short, word_size_short, window_size_short, days_short, pattern_short=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-        dist_exit_short, word_size_exit_short, window_size_exit_short, pattern_exit_short=np.zeros(n),np.zeros(n,dtype=int),np.zeros(n,dtype=int),[]
-
-        # extract chromossomes
-        for ind,solution in enumerate(x):
-
-            long_genes = solution[:ENTER_LONG]
-            dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], pattern = long_genes[0], round(
-                long_genes[1]), round(long_genes[2]), round(long_genes[3]), np.round(long_genes[4:])
-            pattern_long.append(pattern[:word_size_long[ind]])
-
-            exit_long_genes = solution[ENTER_LONG:EXIT_LONG]
-            dist_exit_long[ind], word_size_exit_long[ind], window_size_exit_long[ind], pattern = exit_long_genes[0], round(
-                exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
-            pattern_exit_long.append(pattern[:word_size_exit_long[ind]])
-
-            short_genes = solution[EXIT_LONG:ENTER_SHORT]
-            dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
-                short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
-            pattern_short.append(pattern[:word_size_short[ind]])
-
-            exit_short_genes = solution[ENTER_SHORT:EXIT_SHORT]
-            dist_exit_short[ind], word_size_exit_short[ind], window_size_exit_short[ind], pattern = exit_short_genes[0], round(
-                exit_short_genes[1]), round(exit_short_genes[2]), np.round(exit_short_genes[4:])
-            pattern_exit_short.append(pattern[:word_size_exit_short[ind]])
-
-        # From full spread get start of the test set
-        spread = spread_full
-        i = spread_test.index[0]
-        offset = spread_full.index.get_loc(i)
-
-        # Init trade array and trade variables
-        trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-        trade_array.iloc[0], trade_array.iloc[-1] = CLOSE_POSITION, CLOSE_POSITION
-        stabilizing_threshold = 5
-        position = CLOSE_POSITION
-        l_dist = 0
-        s_dist = 0
-        day_count = 0
-
-        for day in range(len(spread_test)-1):
-
-            # Wait for spread to stabilize
-            if day < stabilizing_threshold:
-                continue
-
-            long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
-                                                               word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
-
-            # Apply the buy and sell rules
-            if position == CLOSE_POSITION:
-
-   
-                l_dist,l_idx = get_best_distance(long_sax_seq, pattern_long,dist_long)
-                s_dist,s_idx = get_best_distance(short_sax_seq, pattern_short,dist_short)
-
-                # LONG SPREAD
-                if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
-                    position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
-                    l_dist = s_dist = 0
-
-                elif s_dist < dist_short[s_idx]:  # SHORT SPREAD
-                    position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
-                    l_dist = s_dist = 0
-
-            elif position == LONG_SPREAD:
-                l_dist,l_idx = get_best_distance(long_sax_seq, pattern_exit_long,dist_exit_long)
-                if l_dist > dist_exit_long[l_idx] or day_count > days_long[l_idx]:
-                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                    l_dist = s_dist = np.inf
-                    day_count = 0
-
-            elif position == SHORT_SPREAD:
-                s_dist,s_idx = get_best_distance(short_sax_seq, pattern_exit_short,dist_exit_short)
-                if s_dist > dist_exit_short[s_idx] or day_count > days_short[s_idx]:
-                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-                    l_dist = s_dist = np.inf
-                    day_count = 0
-            if position != CLOSE_POSITION:
-                day_count += 1
-
-        # completes the array by propagating the last valid observation
-        trade_array = trade_array.fillna(method='ffill')
-
-        if plot:
-            plot_positions(spread_test, trade_array)
-
-        return trade_array
 
     def __sax_ga(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
-              DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
-              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
+                 DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
+                 gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
         # Build genetic algorithm
         algorithm = GA(pop_size=pop,
                        crossover=PointCrossover(prob=1, n_points=8),
@@ -669,7 +548,7 @@ class TradingPhase:
 
         # Get objective function
         sax_ga = SaxObjectivesGA(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(
-        ), c2=c2_train.to_numpy(), window_size=w_size,alphabet_size=alphabet_size,DAYS_CLOSE=DAYS_CLOSE,FIXED_VALUE=FIXED_VALUE,commission=commission,  market_impact=market_impact, short_loan=short_loan)
+        ), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size, DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan)
 
         # Optimize patterns
         results = minimize(sax_ga, algorithm, ("n_gen", gen),
