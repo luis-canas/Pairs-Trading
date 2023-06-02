@@ -436,7 +436,7 @@ class TradingPhase:
 
     #         short_genes = solution[EXIT_LONG:ENTER_SHORT]
     #         dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
-    #             short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
+    #             short_genes[1]), round(short_genes[2]), round(short_genes[3]), np.round(short_genes[4:])
     #         pattern_short.append(pattern[:word_size_short[ind]])
 
     #         exit_short_genes = solution[ENTER_SHORT:EXIT_SHORT]
@@ -558,7 +558,7 @@ class TradingPhase:
 
             short_genes = solution[ENTER_LONG:ENTER_SHORT]
             dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], pattern = short_genes[0], round(
-                short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
+                short_genes[1]), round(short_genes[2]), round(short_genes[3]), np.round(short_genes[4:])
             pattern_short.append(pattern[:word_size_short[ind]])
 
         # From full spread get start of the test set
@@ -670,7 +670,7 @@ class TradingPhase:
 
         short_genes = x[EXIT_LONG:ENTER_SHORT]
         dist_short, word_size_short, window_size_short, days_short, pattern_short = short_genes[0], round(
-            short_genes[1]), round(short_genes[2]), round(long_genes[3]), np.round(short_genes[4:])
+            short_genes[1]), round(short_genes[2]), round(short_genes[3]), np.round(short_genes[4:])
         pattern_short = pattern_short[:word_size_short]
 
         exit_short_genes = x[ENTER_SHORT:EXIT_SHORT]

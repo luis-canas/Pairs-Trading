@@ -378,3 +378,6 @@ def plot_positions(spread, positions):
     ax.set_ylabel('Normalized Spread')
 
     plt.show()
+
+def round(data):
+    return np.round(data, decimals=0).astype(int)
