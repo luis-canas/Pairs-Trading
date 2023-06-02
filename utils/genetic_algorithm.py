@@ -210,12 +210,12 @@ class SaxObjectivesLS(ElementwiseProblem):
     def _evaluate(self, x, out, *args, **kwargs):
 
         # extract chromossomes
-        long_genes = x[:self.ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,days_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), round(long_genes[3]),np.round(long_genes[4:])
+        genes = x[:self.ENTER_LONG]
+        dist_long,word_size_long ,window_size_long,days_long,pattern_long = genes[0],round(genes[1]),round(genes[2]), round(genes[3]),round(genes[4:])
         pattern_long=pattern_long[:word_size_long]
 
-        short_genes = x[self.ENTER_LONG:self.ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, days_short,pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),round(long_genes[3]),np.round(short_genes[4:])
+        genes = x[self.ENTER_LONG:self.ENTER_SHORT]
+        dist_short,word_size_short ,window_size_short, days_short,pattern_short = genes[0], round(genes[1]),round(genes[2]),round(genes[3]),round(genes[4:])
         pattern_short=pattern_short[:word_size_short]
 
        
@@ -423,20 +423,20 @@ class SaxObjectives(ElementwiseProblem):
     def _evaluate(self, x, out, *args, **kwargs):
 
         # extract chromossomes
-        long_genes = x[:self.ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,days_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), round(long_genes[3]),round(long_genes[4:])
+        genes = x[:self.ENTER_LONG]
+        dist_long,word_size_long ,window_size_long,days_long,pattern_long = genes[0],round(genes[1]),round(genes[2]), round(genes[3]),round(genes[4:])
         pattern_long=pattern_long[:word_size_long]
 
-        exit_long_genes = x[self.ENTER_LONG:self.EXIT_LONG]
-        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), round(exit_long_genes[4:])
+        genes = x[self.ENTER_LONG:self.EXIT_LONG]
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = genes[0], round(genes[1]), round(genes[2]), round(genes[4:])
         pattern_exit_long=pattern_exit_long[:word_size_exit_long]
 
-        short_genes = x[self.EXIT_LONG:self.ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, days_short,pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),round(long_genes[3]),round(short_genes[4:])
+        genes = x[self.EXIT_LONG:self.ENTER_SHORT]
+        dist_short,word_size_short ,window_size_short, days_short,pattern_short = genes[0], round(genes[1]),round(genes[2]),round(genes[3]),round(genes[4:])
         pattern_short=pattern_short[:word_size_short]
 
-        exit_short_genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
-        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), round(exit_short_genes[4:])
+        genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = genes[0],round(genes[1]),round(genes[2]), round(genes[4:])
         pattern_exit_short=pattern_exit_short[:word_size_exit_short]
 
        
@@ -644,20 +644,20 @@ class SaxObjectivesGA(ElementwiseProblem):
     def _evaluate(self, x, out, *args, **kwargs):
 
         # extract chromossomes
-        long_genes = x[:self.ENTER_LONG]
-        dist_long,word_size_long ,window_size_long,days_long,pattern_long = long_genes[0],round(long_genes[1]),round(long_genes[2]), round(long_genes[3]),np.round(long_genes[4:])
+        genes = x[:self.ENTER_LONG]
+        dist_long,word_size_long ,window_size_long,days_long,pattern_long = genes[0],round(genes[1]),round(genes[2]), round(genes[3]),round(genes[4:])
         pattern_long=pattern_long[:word_size_long]
 
-        exit_long_genes = x[self.ENTER_LONG:self.EXIT_LONG]
-        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = exit_long_genes[0], round(exit_long_genes[1]), round(exit_long_genes[2]), np.round(exit_long_genes[4:])
+        genes = x[self.ENTER_LONG:self.EXIT_LONG]
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = genes[0], round(genes[1]), round(genes[2]), round(genes[4:])
         pattern_exit_long=pattern_exit_long[:word_size_exit_long]
 
-        short_genes = x[self.EXIT_LONG:self.ENTER_SHORT]
-        dist_short,word_size_short ,window_size_short, days_short,pattern_short = short_genes[0], round(short_genes[1]),round(short_genes[2]),round(long_genes[3]),np.round(short_genes[4:])
+        genes = x[self.EXIT_LONG:self.ENTER_SHORT]
+        dist_short,word_size_short ,window_size_short, days_short,pattern_short = genes[0], round(genes[1]),round(genes[2]),round(genes[3]),round(genes[4:])
         pattern_short=pattern_short[:word_size_short]
 
-        exit_short_genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
-        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = exit_short_genes[0],round(exit_short_genes[1]),round(exit_short_genes[2]), np.round(exit_short_genes[4:])
+        genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = genes[0],round(genes[1]),round(genes[2]), round(genes[4:])
         pattern_exit_short=pattern_exit_short[:word_size_exit_short]
 
        

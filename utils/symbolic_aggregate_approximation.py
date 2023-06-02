@@ -228,41 +228,36 @@ def get_results(results, w_size):
     for ind, solution in enumerate(x):
 
 
-        exit_short_genes = solution[ENTER_SHORT:EXIT_SHORT]
-        dist_exit_short[ind], word_size_exit_short[ind], window_size_exit_short[ind], p = exit_short_genes[0], exit_short_genes[1], exit_short_genes[2], exit_short_genes[4:]
+        genes = solution[ENTER_SHORT:EXIT_SHORT]
+        dist_exit_short[ind], word_size_exit_short[ind], window_size_exit_short[ind], p = genes[0], genes[1], genes[2], genes[4:]
         pattern_exit_short.append(p[:word_size_exit_short[ind]])
 
-        del solution[EXIT_SHORT-w_size+word_size_exit_short[ind]:EXIT_SHORT]
+        solution[EXIT_SHORT-w_size+word_size_exit_short[ind]:EXIT_SHORT]=[-1]*(w_size - word_size_exit_short[ind])
 
-        short_genes = solution[EXIT_LONG:ENTER_SHORT]
-        dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], p = short_genes[0], short_genes[1], short_genes[2], short_genes[3], short_genes[4:]
+        genes = solution[EXIT_LONG:ENTER_SHORT]
+        dist_short[ind], word_size_short[ind], window_size_short[ind], days_short[ind], p = genes[0], genes[1], genes[2], genes[3], genes[4:]
         pattern_short.append(p[:word_size_short[ind]])
 
-        del solution[ENTER_SHORT-w_size+word_size_short[ind]:ENTER_SHORT]
+        solution[ENTER_SHORT-w_size+word_size_short[ind]:ENTER_SHORT]=[-1]*(w_size - word_size_short[ind])
 
-        exit_long_genes = solution[ENTER_LONG:EXIT_LONG]
-        dist_exit_long[ind], word_size_exit_long[ind], window_size_exit_long[ind], p = exit_long_genes[0],exit_long_genes[1],exit_long_genes[2],exit_long_genes[4:]
+        genes = solution[ENTER_LONG:EXIT_LONG]
+        dist_exit_long[ind], word_size_exit_long[ind], window_size_exit_long[ind], p = genes[0],genes[1],genes[2],genes[4:]
         pattern_exit_long.append(p[:word_size_exit_long[ind]])
 
-        del solution[EXIT_LONG-w_size+ word_size_exit_long[ind]:EXIT_LONG]
+        solution[EXIT_LONG-w_size+ word_size_exit_long[ind]:EXIT_LONG]=[-1]*(w_size - word_size_exit_long[ind])
 
-        long_genes = solution[:ENTER_LONG]
-        dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], p = long_genes[0], long_genes[1], long_genes[2], long_genes[3], long_genes[4:]
+        genes = solution[:ENTER_LONG]
+        dist_long[ind], word_size_long[ind], window_size_long[ind], days_long[ind], p = genes[0], genes[1], genes[2], genes[3], genes[4:]
         pattern_long.append(p[:word_size_long[ind]])
 
-        del solution[ENTER_LONG-w_size+ word_size_long[ind]:ENTER_LONG]
+        solution[ENTER_LONG-w_size+ word_size_long[ind]:ENTER_LONG]=[-1]*(w_size - word_size_long[ind])
 
-    # Determine the desired size as the maximum number of columns among all rows
-    col_size = max(len(row) for row in x)
-
-    # Extend each row with the constant value to match the desired size
-    extended_list = [row + [0] * (col_size - len(row)) for row in x]
 
     # Use the unique function with the 'axis' parameter set to 0 and 'return_index' parameter set to True
-    _, ind= np.unique(np.array(extended_list), axis=0, return_index=True)
+    _, ind= np.unique(np.array(x), axis=0, return_index=True)
 
     # Create a mask with True for the rows to keep
-    mask = np.zeros(len(extended_list), dtype=bool)
+    mask = np.zeros(len(x), dtype=bool)
     mask[ind] = True
 
     # Nested list, apply mask here
