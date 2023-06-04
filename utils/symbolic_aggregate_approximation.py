@@ -11,6 +11,9 @@ References
 import numpy as np
 from scipy.stats import norm
 from utils.utils import round
+import matplotlib.pyplot as plt
+from os import makedirs
+from os.path import isfile, exists
 
 
 def pattern_distance(pattern1, pattern2):
@@ -172,7 +175,6 @@ def get_best_distance(sax_seq_list, pattern, distances):
 
     return min_dist, min_idx
 
-
 # def get_best_distance(sax_seq_list,pattern,distances):
 
 #     n=len(pattern)
@@ -281,3 +283,157 @@ def get_results(results, w_size):
     exit_short=PatternResults(dist=dist_exit_short[mask],word_size=word_size_exit_short[mask],window_size=window_size_exit_short[mask],pattern=pattern_exit_short)
     
     return long,exit_long,short,exit_short
+
+
+def plot_sax(spread,start,end,offset,positions,plt_l,plt_s,plt_el,plt_es):
+
+    LONG_SPREAD = 1
+    SHORT_SPREAD = -1
+    CLOSE_POSITION = 0
+    space=4
+
+    def first_occurrences(arr, val):
+        mask = (arr == val).astype(int)
+        diff = np.diff(mask)
+        return np.where(diff == 1)[0] + 1
+    
+    def PAA(N,n,section):
+        # take care of the special case where there is no dimensionality reduction
+        if N == n:
+            PAA = section
+
+        # Convert to PAA.
+        else:
+            # N is not dividable by n
+            if (N/n - np.floor(N/n)):
+
+                # Expand the matrix
+                expanded_section = np.tile(section, (n, 1))
+                # Reshape the matrix into a row vector
+                expanded_section = expanded_section.reshape(1, n*N, order='F')
+
+                PAA = np.mean(np.reshape(expanded_section,
+                            (N, n), order='F'), axis=0)
+
+            # N is dividable by n
+            else:
+                PAA = np.mean(np.reshape(
+                    section, (int(N/n), n), order='F'), axis=0)
+                
+        return PAA
+    
+
+    exit_size=len(plt_el)+len(plt_es)
+    if exit_size:
+        plots=3
+    else:
+        plots=2
+    # Create the subplots
+    fig, axes = plt.subplots(plots, 1, figsize=(16, 12), dpi=300)
+    
+    axes[0].plot(spread, linewidth=5, zorder=1)
+
+    axes[1].plot(spread, linewidth=5)
+
+    if exit_size:
+        axes[2].plot(spread, linewidth=5)
+
+    for ax in axes.flatten():
+        ax.xaxis.set_visible(False)
+
+
+    exits = first_occurrences(positions, CLOSE_POSITION)
+
+    if len(exits) > 0:
+        axes[0].scatter(exits + offset, spread[exits + offset], marker='o', color='r', label='Exit', s=100, zorder=2)
+
+        if exit_size:
+            idx=0
+            idy=0
+
+            for entry in exits:
+
+    
+                if len(plt_el)+len(plt_es) == 0:
+                    break
+
+                for i in range(entry-1, -1, -1):
+                    if positions[i] != 0:
+                        prev_value = positions[i]
+                        break
+
+                if prev_value == LONG_SPREAD and len(plt_el)>0:
+                    word,window=plt_el.pop(0)
+                    start_index = max(0, entry - window +1  + offset)
+                    end_index = entry + 1 + offset
+
+                    seq=PAA(window,word,spread[start_index:end_index])
+
+                    axes[2].plot(range(start_index, end_index), spread[start_index:end_index] + space*idx+space, color='lime')
+
+                    segment_points = np.linspace(start_index, end_index, len(seq) + 1)
+                    segment_midpoints = 0.5 * (segment_points[:-1] + segment_points[1:])
+                    axes[2].plot(segment_midpoints, seq+ space*idx+space, 'ro-')
+                    idx+=1
+                elif len(plt_es)>0:
+                    word,window=plt_es.pop(0)
+                    start_index = max(0, entry - window +1  + offset)
+                    end_index = entry + 1 + offset
+
+                    seq=PAA(window,word,spread[start_index:end_index])
+
+                    axes[2].plot(range(start_index, end_index), spread[start_index:end_index] + space*idx+space, color='lime')
+
+                    segment_points = np.linspace(start_index, end_index, len(seq) + 1)
+                    segment_midpoints = 0.5 * (segment_points[:-1] + segment_points[1:])
+                    axes[2].plot(segment_midpoints, seq- space*idy-space, 'ro-')
+                    idy+=1
+
+
+    long_entries = first_occurrences(positions, LONG_SPREAD)
+
+    if len(long_entries) > 0:
+        axes[0].scatter(long_entries + offset, spread[long_entries + offset], marker='^', color='g', label='Long Entry', s=100, zorder=2)
+        for idx,(entry,[word,window]) in enumerate(zip(long_entries,plt_l)):
+            start_index = max(0, entry - window +1  + offset)
+            end_index = entry + 1 + offset
+
+            seq=PAA(window,word,spread[start_index:end_index])
+
+            axes[1].plot(range(start_index, end_index), spread[start_index:end_index] + space*idx+space, color='lime')
+
+            segment_points = np.linspace(start_index, end_index, len(seq) + 1)
+            segment_midpoints = 0.5 * (segment_points[:-1] + segment_points[1:])
+            axes[1].plot(segment_midpoints, seq+ space*idx+space, 'ro-')
+
+    short_entries = first_occurrences(positions, SHORT_SPREAD)
+
+    if len(short_entries) > 0:
+        axes[0].scatter(short_entries + offset, spread[short_entries + offset], marker='v', color='b', label='Short Entry', s=100, zorder=2)
+        for idx,(entry,[word,window]) in enumerate(zip(short_entries,plt_s)):
+            start_index = max(0, entry - window +1  + offset)
+            end_index = entry + 1 + offset
+
+            seq=PAA(window,word,spread[start_index:end_index])
+
+            axes[1].plot(range(start_index, end_index), spread[start_index:end_index] - space*idx-space, color='royalblue')
+            segment_points = np.linspace(start_index, end_index, len(seq) + 1)
+            segment_midpoints = 0.5 * (segment_points[:-1] + segment_points[1:])
+            axes[1].plot(segment_midpoints, seq- space*idx-space, 'ro-')
+
+
+
+
+    isExist = exists("results/img")
+    if not isExist:
+        makedirs("results/img")
+
+    filename=f'results/img/SAX_{start}_{end}.jpg'
+
+    counter = 1
+    while exists(filename):
+        # Append the counter to the filename
+        filename = f'results/img/SAX_{start}_{end}({counter}).jpg'
+        counter += 1
+
+    plt.savefig(filename, format='jpg', dpi=300)
