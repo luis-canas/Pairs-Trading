@@ -14,7 +14,7 @@ from pymoo.operators.mutation.pm import PolynomialMutation
 from pymoo.optimize import minimize
 
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions
-from utils.symbolic_aggregate_approximation import pattern_distance, get_best_distance, get_best_patterns,get_results,plot_sax
+from utils.symbolic_aggregate_approximation import pattern_distance, get_best_distance, get_best_patterns,get_results,plot_sax,get_best_patterns2
 
 from utils.genetic_algorithm import SaxObjectivesLS, SaxObjectivesGA, SaxObjectives
 
@@ -469,16 +469,12 @@ class TradingPhase:
             if day < stabilizing_threshold:
                 continue
 
-            long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
+            l_dist, s_dist,  l_idx ,s_idx= get_best_patterns2(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
                                                             word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
 
             # Apply the buy and sell rules
             if position == CLOSE_POSITION:
 
-                l_dist, l_idx = get_best_distance(
-                    long_sax_seq, pattern_long, dist_long)
-                s_dist, s_idx = get_best_distance(
-                    short_sax_seq, pattern_short, dist_short)
 
                 # LONG SPREAD
                 if l_dist < dist_long[l_idx] and (s_dist >= dist_short[s_idx] or (s_dist < dist_short[s_idx] and l_dist < s_dist)):
@@ -492,9 +488,8 @@ class TradingPhase:
                     plt_s.append([word_size_short[s_idx],window_size_short[s_idx]])
 
             elif position == LONG_SPREAD:
-                l_dist, l_idx = get_best_distance(
-                    long_sax_seq, pattern_exit_long, dist_exit_long)
-                if l_dist > dist_exit_long[l_idx] or day_count > days_long[l_idx]:
+
+                if l_dist < dist_exit_long[l_idx] or day_count > days_long[l_idx]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     if day_count <= days_long[l_idx]:
                         plt_el.append([word_size_exit_long[l_idx],window_size_exit_long[l_idx]])
@@ -503,9 +498,8 @@ class TradingPhase:
 
                    
             elif position == SHORT_SPREAD:
-                s_dist, s_idx = get_best_distance(
-                    short_sax_seq, pattern_exit_short, dist_exit_short)
-                if s_dist > dist_exit_short[s_idx] or day_count > days_short[s_idx]:
+
+                if s_dist < dist_exit_short[s_idx] or day_count > days_short[s_idx]:
                     position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
                     if day_count <= days_short[s_idx]:
                         plt_es.append([word_size_exit_short[s_idx],window_size_exit_short[s_idx]])

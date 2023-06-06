@@ -6,7 +6,7 @@ from statsmodels.tsa.stattools import coint
 from utils.symbolic_aggregate_approximation import pattern_distance, find_pattern,min_dist
 from utils.utils import price_of_entire_component,max_drawdown,sharpe_ratio,round
 from pymoo.core.problem import ElementwiseProblem
-
+import concurrent.futures
 
 
 
@@ -454,7 +454,8 @@ class SaxObjectives(ElementwiseProblem):
             for day in range(1,len(self.spread)-1):
                 
                 cash_in_hand[day]=cash_in_hand[day-1]  
-                long_sax_seq,short_sax_seq=self._get_patterns(position,self.spread[:day+1],self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short)
+                long_sax_seq,short_sax_seq=self._get_patterns(position,self.spread[:day+1],self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short,
+                                                              pattern_long,pattern_exit_long,pattern_short,pattern_exit_short)
 
                 # Apply the buy and sell rules
                 if position == CLOSE_POSITION:
@@ -529,24 +530,56 @@ class SaxObjectives(ElementwiseProblem):
         # Set the fitness value to the total earnings
         out["F"] = [f for f in fitness]
 
-    def _get_patterns(self,position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short):
+    def _get_patterns(self,position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short,
+                      pattern_long,pattern_exit_long,pattern_short,pattern_exit_short):
         
         long_sax_seq,short_sax_seq= None,None
+        min_long=min_short=0
+        w_interval=0.1
 
         if position==CLOSE_POSITION:
+            min_long=min_short=np.inf
 
-            if window_size_long<=len(spread):
-                long_sax_seq, _ = find_pattern(spread[-window_size_long:], word_size_long, alphabet)
-            if window_size_short<=len(spread):
-                short_sax_seq, _ = find_pattern(spread[-window_size_short:], word_size_short, alphabet)
+            interval=int(window_size_long*w_interval)
+
+            for idx in range(window_size_long-interval,window_size_long+interval+1,int(np.ceil(interval*w_interval))):
+                if idx<=len(spread) and idx>=word_size_long:
+                    seq, _ = find_pattern(spread[-idx:], word_size_long, alphabet)
+                    dist=pattern_distance(seq, pattern_long)
+                    if dist < min_long:
+                        min_long=dist
+                        long_sax_seq=seq
+
+            interval=int(window_size_short*w_interval)
+            for idx in range(window_size_short-interval,window_size_short+interval+1,int(np.ceil(interval*w_interval))):
+                if idx<=len(spread) and idx>=word_size_short:
+                    seq, _ = find_pattern(spread[-idx:], word_size_short, alphabet)
+                    dist=pattern_distance(seq, pattern_short)
+                    if dist < min_short:
+                        min_short=dist
+                        short_sax_seq=seq
 
         elif position == LONG_SPREAD:
-            if window_size_exit_long<=len(spread):
-                long_sax_seq, _ = find_pattern(spread[-window_size_exit_long:], word_size_exit_long, alphabet)
+            interval=int(window_size_exit_long*w_interval)
+
+            for idx in range(window_size_exit_long-interval,window_size_exit_long+interval+1,int(np.ceil(interval*w_interval))):
+                if idx<=len(spread) and idx>=word_size_exit_long:
+                    seq, _ = find_pattern(spread[-idx:], word_size_exit_long, alphabet)
+                    dist=pattern_distance(seq, pattern_exit_long)
+                    if dist > min_long:
+                        min_long=dist
+                        long_sax_seq=seq
+
 
         elif position == SHORT_SPREAD:
-            if window_size_exit_short<=len(spread):
-                short_sax_seq, _ = find_pattern(spread[-window_size_exit_short:], word_size_exit_short, alphabet)
+            interval=int(window_size_exit_short*w_interval)
+            for idx in range(window_size_exit_short-interval,window_size_exit_short+interval+1,int(np.ceil(interval*w_interval))):
+                if idx<=len(spread) and idx>=window_size_exit_short:
+                    seq, _ = find_pattern(spread[-idx:], word_size_exit_short, alphabet)
+                    dist=pattern_distance(seq, pattern_exit_short)
+                    if dist > min_short:
+                        min_short=dist
+                        short_sax_seq=seq
 
         return long_sax_seq,short_sax_seq
 
@@ -587,8 +620,255 @@ class SaxObjectives(ElementwiseProblem):
 
 
         return position,cash_in_hand,stocks_in_hand
-
     
+
+
+class SaxObjectivesParallel(ElementwiseProblem):
+
+    def __init__(self, spread, c1, c2, window_size,alphabet_size,DAYS_CLOSE=252,objectives=["ROI","MDD","SR","FREQ"],FIXED_VALUE=1000,commission=0.08,  market_impact=0.2, short_loan=1):
+
+        # spread and components price series
+        self.spread = spread
+        self.c1 = c1
+        self.c2 = c2
+        self.alphabet_size = alphabet_size
+        self.objectives = objectives
+
+        # trading costs
+
+        self.fixed_costs_per_trade = (
+            commission + market_impact) / 100  # remove percentage
+        self.short_costs_per_day = FIXED_VALUE * \
+            (short_loan / len(spread)) / 100  # remove percentage
+
+        # sax parameters
+        MAX_SIZE = window_size
+
+        # Chromossome size: pattern_distance, word_size ,window_size and pattern of decision
+        NON_PATTERN_SIZE=1+1+1+1
+        CHROMOSSOME_SIZE = NON_PATTERN_SIZE+MAX_SIZE
+
+        # Chromossome for each decision (4 strategies)
+        self.ENTER_LONG = CHROMOSSOME_SIZE
+        self.EXIT_LONG = 2*CHROMOSSOME_SIZE
+        self.ENTER_SHORT = 3*CHROMOSSOME_SIZE
+        self.EXIT_SHORT = 4*CHROMOSSOME_SIZE
+
+        # lower bound and upper bound for pattern_distances
+        variables_lb = [0,1,1,1]
+        variables_ub = [50,MAX_SIZE,MAX_SIZE,DAYS_CLOSE]
+
+        # lower bound and upper bound for patterns
+        pattern_lb = [0]*MAX_SIZE
+        pattern_ub = [alphabet_size-1]*MAX_SIZE
+
+        # join bounds
+        xl = np.tile(np.concatenate((variables_lb, pattern_lb)), 4)
+        xu = np.tile(np.concatenate((variables_ub, pattern_ub)), 4)
+
+        super().__init__(n_var=4*CHROMOSSOME_SIZE,
+                         n_obj=len(objectives),
+                         n_constr=4,
+                         xl=xl,
+                         xu=xu,
+                         vtype=float)
+
+    def _evaluate(self, x, out, *args, **kwargs):
+
+        # extract chromossomes
+        g1=genes = x[:self.ENTER_LONG]
+        dist_long,word_size_long ,window_size_long,days_long,pattern_long = genes[0],round(genes[1]),round(genes[2]), round(genes[3]),round(genes[4:])
+        pattern_long=pattern_long[:word_size_long]
+
+        genes = x[self.ENTER_LONG:self.EXIT_LONG]
+        dist_exit_long, word_size_exit_long ,window_size_exit_long,pattern_exit_long = genes[0], round(genes[1]), round(genes[2]), round(genes[4:])
+        pattern_exit_long=pattern_exit_long[:word_size_exit_long]
+
+        genes = x[self.EXIT_LONG:self.ENTER_SHORT]
+        dist_short,word_size_short ,window_size_short, days_short,pattern_short = genes[0], round(genes[1]),round(genes[2]),round(g1[3]),round(genes[4:])
+        pattern_short=pattern_short[:word_size_short]
+
+        genes = x[self.ENTER_SHORT:self.EXIT_SHORT]
+        dist_exit_short, word_size_exit_short ,window_size_exit_short,pattern_exit_short = genes[0],round(genes[1]),round(genes[2]), round(genes[4:])
+        pattern_exit_short=pattern_exit_short[:word_size_exit_short]
+
+       
+        # Initialize variables for tracking trades and earnings
+        position = CLOSE_POSITION
+        FIXED_VALUE = 1000
+        stocks_in_hand = np.zeros(2)
+        cash_in_hand=np.zeros(len(self.spread))
+        cash_in_hand[0] = FIXED_VALUE
+        l_dist =np.inf
+        s_dist =np.inf
+        day_count=0
+        frequency=0
+
+        if word_size_long<=window_size_long and word_size_short<=window_size_short and word_size_exit_long<=window_size_exit_long and word_size_exit_short<=window_size_exit_short:
+
+            # Slide a window along the time series and convert to SAX, except last day where we close position
+            for day in range(1,len(self.spread)-1):
+                
+                cash_in_hand[day]=cash_in_hand[day-1]  
+                long_sax_seq,short_sax_seq=self._get_patterns(position,self.spread[:day+1],self.alphabet_size,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short,
+                                                              pattern_long,pattern_exit_long,pattern_short,pattern_exit_short)
+
+                # Apply the buy and sell rules
+                if position == CLOSE_POSITION:
+                    
+                    if long_sax_seq is not None:
+                        l_dist = pattern_distance(long_sax_seq, pattern_long)
+                    if short_sax_seq is not None:
+                        s_dist = pattern_distance(short_sax_seq, pattern_short)
+
+                    if l_dist < dist_long and (s_dist >= dist_short or (s_dist < dist_short and l_dist<s_dist)):  # LONG SPREAD
+                        position,cash_in_hand[day],stocks_in_hand=self._trade_decision(LONG_SPREAD,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
+                        l_dist=s_dist=0
+                        frequency+=1
+                    elif s_dist < dist_short:  # SHORT SPREAD
+                        position,cash_in_hand[day],stocks_in_hand=self._trade_decision(SHORT_SPREAD,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
+                        l_dist=s_dist=0
+                        frequency+=1
+
+                elif position == LONG_SPREAD:
+                    if long_sax_seq is not None:
+                        l_dist = pattern_distance(long_sax_seq, pattern_exit_long)
+                    if l_dist < dist_exit_long or day_count>days_long:
+                        position,cash_in_hand[day],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
+                        l_dist=s_dist=np.inf
+                        day_count=0
+                        frequency+=1
+
+
+                elif position == SHORT_SPREAD:
+                    if short_sax_seq is not None:
+                        s_dist = pattern_distance(short_sax_seq, pattern_exit_short)
+                    if s_dist < dist_exit_short or day_count>days_short:
+                        position,cash_in_hand[day],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day],self.c2[day])
+                        l_dist=s_dist=np.inf
+                        day_count=0
+                        frequency+=1
+
+                # short rental costs are applied daily!
+                # means there's an open position
+                if position != CLOSE_POSITION:
+                    cash_in_hand[day] -= self.short_costs_per_day
+                    day_count+=1
+
+
+            if position!=CLOSE_POSITION:
+                position,cash_in_hand[day+1],stocks_in_hand=self._trade_decision(CLOSE_POSITION,FIXED_VALUE, cash_in_hand[day],stocks_in_hand,self.c1[day+1],self.c2[day+1])
+
+        # constraints
+        # size of the pattern must be lower or equal than size of the window
+        g1 = word_size_long - window_size_long
+        g2 = word_size_short - window_size_short
+        g3 = word_size_exit_long - window_size_exit_long
+        g4 = word_size_exit_short - window_size_exit_short
+
+        # Set constraints
+        out["G"] = [g1, g2, g3, g4]
+
+        fitness=[]
+
+        if "ROI" in self.objectives:
+            roi = (cash_in_hand[-1]/(cash_in_hand[0])-1) * 100
+            fitness.append(-roi)
+        if "MDD" in self.objectives:
+            mdd,_,_=max_drawdown(cash_in_hand)
+            fitness.append(mdd)
+        if "SR" in self.objectives:
+            sr=sharpe_ratio(cash_in_hand)
+            fitness.append(-sr)
+        if "FREQ" in self.objectives:
+            fitness.append(-frequency)
+
+        # Set the fitness value to the total earnings
+        out["F"] = [f for f in fitness]
+
+    def _get_patterns(self,position,spread,alphabet,word_size_long ,window_size_long,word_size_exit_long ,window_size_exit_long,word_size_short ,window_size_short, word_size_exit_short ,window_size_exit_short,
+                      pattern_long,pattern_exit_long,pattern_short,pattern_exit_short):
+       
+        long_sax_seq, short_sax_seq = None, None
+
+        if position == CLOSE_POSITION:
+            # Execute long and short computations concurrently
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                long_future = executor.submit(self._parallel_computation, spread, window_size_long, word_size_long, alphabet, pattern_long, np.inf)
+                short_future = executor.submit(self._parallel_computation, spread, window_size_short, word_size_short, alphabet, pattern_short, np.inf)
+
+                long_sax_seq = long_future.result()
+                short_sax_seq = short_future.result()
+
+        elif position == LONG_SPREAD:
+            long_sax_seq = self._parallel_computation(spread, window_size_exit_long, word_size_exit_long, alphabet, pattern_exit_long, np.inf)
+
+        elif position == SHORT_SPREAD:
+            short_sax_seq = self._parallel_computation(spread, window_size_exit_short, word_size_exit_short, alphabet, pattern_exit_short, np.inf)
+
+        return long_sax_seq, short_sax_seq
+
+    def _trade_decision(self,position,FIXED_VALUE, cash_in_hand,stocks_in_hand,c1_day,c2_day):
+        
+        if position==LONG_SPREAD:
+
+            value_to_buy = min(FIXED_VALUE, cash_in_hand)
+            # long c1
+            cash_in_hand += -value_to_buy
+            stocks_in_hand[0] = value_to_buy / c1_day
+            # short c2
+            cash_in_hand += value_to_buy
+            stocks_in_hand[1] = -value_to_buy / c2_day
+            # transaction costs
+            cash_in_hand -= 2*value_to_buy*self.fixed_costs_per_trade
+
+        elif position==SHORT_SPREAD:
+
+            value_to_buy = min(FIXED_VALUE, cash_in_hand)
+            # long c2
+            cash_in_hand += -value_to_buy
+            stocks_in_hand[1] = value_to_buy / c2_day
+            # short c1
+            cash_in_hand += value_to_buy
+            stocks_in_hand[0] = -value_to_buy / c1_day
+            # transaction costs
+            cash_in_hand -= 2*value_to_buy*self.fixed_costs_per_trade
+        
+        elif position==CLOSE_POSITION:
+
+
+            sale_value = stocks_in_hand[0] * c1_day + stocks_in_hand[1] * c2_day
+            cash_in_hand += sale_value*(1-2*self.fixed_costs_per_trade)
+            # both positions were closed
+            stocks_in_hand[0] = stocks_in_hand[1] = 0
+
+
+
+        return position,cash_in_hand,stocks_in_hand
+    
+    def _parallel_computation(self,spread,window_size,word_size,alphabet,pattern,value):
+
+        w_interval=0.1
+        interval = int(window_size * w_interval)
+
+        def compute_distance(idx):
+            if idx <= len(spread) and idx >= word_size:
+                seq, _ = find_pattern(spread[-idx:], word_size, alphabet)
+                return pattern_distance(seq, pattern),seq
+            return value,None
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            # Submit the compute_distance function for each idx value in parallel
+            results = executor.map(compute_distance, range(window_size - interval, window_size + interval + 1, int(np.ceil(interval * w_interval))))
+
+        # Collect the computed results
+        computed_results = list(results)
+
+        # Find the minimum value and corresponding sequence from the computed results
+        _, sax_seq = min(computed_results, key=lambda x: x[0])
+
+        return sax_seq
+   
 class SaxObjectivesGA(ElementwiseProblem):
 
     def __init__(self, spread, c1, c2, window_size,alphabet_size,DAYS_CLOSE=252,FIXED_VALUE=1000,commission=0.08,  market_impact=0.2, short_loan=1):
