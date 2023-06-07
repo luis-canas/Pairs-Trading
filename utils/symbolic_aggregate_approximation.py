@@ -167,7 +167,8 @@ def get_best_patterns2(position, spread, alphabet, word_size_long=None, window_s
     CLOSE_POSITION = 0
 
     n = len(word_size_long)
-    long_sax_seq_list, short_sax_seq_list = [], []
+    long_sax_seq_list= short_sax_seq_list = []
+    l_dist=s_dist=l_idx=s_idx=np.inf
     w_interval=0.1
 
     for idx in range(n):
@@ -179,7 +180,7 @@ def get_best_patterns2(position, spread, alphabet, word_size_long=None, window_s
                 if idy<=len(spread) and idy>=word_size_long[idx]:
                     long_sax_seq, _ = find_pattern(
                         spread[-idy:], word_size_long[idx], alphabet)
-                    long_sax_seq_list.append([long_sax_seq,pattern_distance(long_sax_seq,pattern_long),idx])
+                    long_sax_seq_list.append([long_sax_seq,pattern_distance(long_sax_seq,pattern_long[idx]),idx])
             
             interval=int(window_size_short[idx]*w_interval)
 
@@ -187,7 +188,7 @@ def get_best_patterns2(position, spread, alphabet, word_size_long=None, window_s
                 if idy<=len(spread) and idy>=word_size_short[idx]:
                     short_sax_seq, _ = find_pattern(
                         spread[-idy:], word_size_short[idx], alphabet)
-                    short_sax_seq_list.append([short_sax_seq,pattern_distance(short_sax_seq,pattern_short),idx])
+                    short_sax_seq_list.append([short_sax_seq,pattern_distance(short_sax_seq,pattern_short[idx]),idx])
 
         elif position == LONG_SPREAD:
 
@@ -197,7 +198,7 @@ def get_best_patterns2(position, spread, alphabet, word_size_long=None, window_s
                 if idy<=len(spread) and idy>=word_size_exit_long[idx]:
                     long_sax_seq, _ = find_pattern(
                         spread[-idy:], word_size_exit_long[idx], alphabet)
-                    long_sax_seq_list.append([long_sax_seq,pattern_distance(long_sax_seq,pattern_exit_long),idx])
+                    long_sax_seq_list.append([long_sax_seq,pattern_distance(long_sax_seq,pattern_exit_long[idx]),idx])
 
         elif position == SHORT_SPREAD:
             interval=int(window_size_exit_short[idx]*w_interval)
@@ -206,15 +207,17 @@ def get_best_patterns2(position, spread, alphabet, word_size_long=None, window_s
                 if idy<=len(spread) and idy>=word_size_exit_short[idx]:
                     short_sax_seq, _ = find_pattern(
                         spread[-idy:], word_size_exit_short[idx], alphabet)
-                    short_sax_seq_list.append([short_sax_seq,pattern_distance(short_sax_seq,pattern_exit_short),idx])
+                    short_sax_seq_list.append([short_sax_seq,pattern_distance(short_sax_seq,pattern_exit_short[idx]),idx])
 
-    idx= np.argmin(long_sax_seq[:,1])
-    l_idx = long_sax_seq[idx,2]
-    l_dist = long_sax_seq[idx,1]
+    if long_sax_seq_list:
+        idx= min(range(len(long_sax_seq_list)), key=lambda i: long_sax_seq_list[i][1])
+        l_idx = long_sax_seq_list[idx][2]
+        l_dist = long_sax_seq_list[idx][1]
 
-    idx= np.argmin(short_sax_seq_list[:,1])
-    s_idx = short_sax_seq_list[idx,2]
-    s_dist = short_sax_seq_list[idx,1]
+    if short_sax_seq_list:
+        idx= min(range(len(short_sax_seq_list)), key=lambda i: short_sax_seq_list[i][1])
+        s_idx = short_sax_seq_list[idx][2]
+        s_dist = short_sax_seq_list[idx][1]
 
     return l_dist,s_dist,l_idx,s_idx
 

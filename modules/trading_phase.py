@@ -470,7 +470,8 @@ class TradingPhase:
                 continue
 
             l_dist, s_dist,  l_idx ,s_idx= get_best_patterns2(position, spread[:offset+day+1].to_numpy(), alphabet_size, word_size_long, window_size_long,
-                                                            word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short)
+                                                            word_size_exit_long, window_size_exit_long, word_size_short, window_size_short, word_size_exit_short, window_size_exit_short,
+                                                            pattern_long,pattern_short,pattern_exit_long,pattern_exit_short)
 
             # Apply the buy and sell rules
             if position == CLOSE_POSITION:
