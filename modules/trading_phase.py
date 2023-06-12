@@ -8,6 +8,7 @@ from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.util.ref_dirs import get_reference_directions
 
+
 from pymoo.operators.crossover.pntx import PointCrossover
 from pymoo.operators.mutation.pm import PolynomialMutation
 
@@ -19,7 +20,7 @@ from utils.symbolic_aggregate_approximation import pattern_distance, get_best_di
 from utils.genetic_algorithm import SaxObjectivesLS, SaxObjectivesGA, SaxObjectives
 
 import xgboost as xgb
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV,train_test_split
 
 PORTFOLIO_INIT = 1000
 NB_TRADING_DAYS = 252
@@ -222,15 +223,16 @@ class TradingPhase:
 
         return trade_array
 
-    def __forecasting_algorithm(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
-                                gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, **kwargs):
+    def __forecasting_algorithm(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,**kwargs):
 
+        # Split the data into training and validation sets
+        X_train, X_val = train_test_split(spread_train, test_size=0.2, random_state=42)
         # Create lagged variables
-        x_train = spread_train
-        y_train = spread_train.shift(-1)
+        x_train = X_train
+        y_train = X_train.shift(-1)
         x_train, y_train = x_train[:-1], y_train[:-1]
-        x_test = spread_test
-        y_test = spread_test.shift(-1)
+        x_test = X_val
+        y_test = X_val.shift(-1)
         x_test, y_test = x_test[:-1], y_test[:-1]
 
         eval_set = [(x_train, y_train), (x_test, y_test)]
@@ -268,116 +270,124 @@ class TradingPhase:
         # as each play only lasts 1 day, the short loan costs = 1 * short_costs_per_day
         transaction_costs = 4 * fixed_costs_per_trade + short_costs_per_day
 
-        for day in range(len(spread)):
+        position = CLOSE_POSITION
+
+        for day in range(len(pred_spread)):
 
             delta = pred_spread[day] - spread[day]
 
             if np.abs(delta) > transaction_costs:  # good to trade
                 if delta < 0:  # short spread
-                    decision_array[day] = SHORT_SPREAD
+                    if position == SHORT_SPREAD or position == CLOSE_POSITION:
+                        decision_array[day] = position = SHORT_SPREAD
+                    elif position == LONG_SPREAD:
+                        decision_array[day] =  position = CLOSE_POSITION
                 if delta > 0:  # long spread
-                    decision_array[day] = LONG_SPREAD
+                    if position == LONG_SPREAD or position == CLOSE_POSITION:
+                        decision_array[day] = position =  LONG_SPREAD
+                    elif position == SHORT_SPREAD:
+                        decision_array[day] = position =  CLOSE_POSITION
             else:
                 decision_array[day] = CLOSE_POSITION
 
-        decision_array[-1] = CLOSE_POSITION
+        decision_array.iloc[-1] = CLOSE_POSITION
 
         return decision_array
 
 
-    # def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
-    #           objectives=["ROI", "MDD", "SR"], DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
-    #           gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
+    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
+              objectives=["ROI", "MDD", "SR"], DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
+              gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=False, **kwargs):
 
-    #     ref_dirs = get_reference_directions(
-    #         "energy", len(objectives), pop, seed=1)
+        ref_dirs = get_reference_directions(
+            "energy", len(objectives), pop, seed=1)
 
-    #     # Build genetic algorithm
-    #     algorithm = NSGA2(pop_size=pop,
-    #                       crossover=PointCrossover(prob=1, n_points=8),
-    #                       mutation=PolynomialMutation(prob=0.1),
-    #                       eliminate_duplicates=True,
-    #                       ref_dirs=ref_dirs)
+        # Build genetic algorithm
+        algorithm = NSGA2(pop_size=pop,
+                          crossover=PointCrossover(prob=1, n_points=8),
+                          mutation=PolynomialMutation(prob=0.1),
+                          eliminate_duplicates=True,
+                          ref_dirs=ref_dirs)
 
-    #     # Get objective function
-    #     sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
-    #                            DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan, objectives=objectives)
+        # Get objective function
+        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
+                               DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan, objectives=objectives)
 
-    #     # Optimize patterns
-    #     results = minimize(sax_ga, algorithm, ("n_gen", gen),
-    #                        seed=1, save_history=True, verbose=verbose)
+        # Optimize patterns
+        results = minimize(sax_ga, algorithm, ("n_gen", gen),
+                           seed=1, save_history=True, verbose=verbose)
 
-    #     long,exit_long,short,exit_short=get_results(results=results,w_size=w_size)
+        long,exit_long,short,exit_short=get_results(results=results,w_size=w_size)
 
-    #     # From full spread get start of the test set
-    #     spread = spread_full
-    #     i = spread_test.index[0]
-    #     offset = spread_full.index.get_loc(i)
+        # From full spread get start of the test set
+        spread = spread_full
+        i = spread_test.index[0]
+        offset = spread_full.index.get_loc(i)
 
-    #     # Init trade array and trade variables
-    #     trade_array = pd.Series([np.nan for i in range(len(spread_test))])
-    #     trade_array.iloc[0], trade_array.iloc[-1] = CLOSE_POSITION, CLOSE_POSITION
-    #     stabilizing_threshold = 5
-    #     position = CLOSE_POSITION
-    #     l_dist = 0
-    #     s_dist = 0
-    #     day_count = 0
+        # Init trade array and trade variables
+        trade_array = pd.Series([np.nan for i in range(len(spread_test))])
+        trade_array.iloc[0], trade_array.iloc[-1] = CLOSE_POSITION, CLOSE_POSITION
+        stabilizing_threshold = 5
+        position = CLOSE_POSITION
+        l_dist = 0
+        s_dist = 0
+        day_count = 0
 
-    #     for day in range(len(spread_test)-1):
+        for day in range(len(spread_test)-1):
 
-    #         # Wait for spread to stabilize
-    #         if day < stabilizing_threshold:
-    #             continue
+            # Wait for spread to stabilize
+            if day < stabilizing_threshold:
+                continue
 
-    #         long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, long.word_size, long.window_size,
-    #                                                         exit_long.word_size, exit_long.window_size,short.word_size, short.window_size, 
-    #                                                         exit_short.word_size, exit_short.window_size)
+            long_sax_seq, short_sax_seq = get_best_patterns(position, spread[:offset+day+1].to_numpy(), alphabet_size, long.word_size, long.window_size,
+                                                            exit_long.word_size, exit_long.window_size,short.word_size, short.window_size, 
+                                                            exit_short.word_size, exit_short.window_size)
 
-    #         # Apply the buy and sell rules
-    #         if position == CLOSE_POSITION:
+            # Apply the buy and sell rules
+            if position == CLOSE_POSITION:
 
-    #             l_dist, l_idx = get_best_distance(
-    #                 long_sax_seq, long.pattern, long.dist)
-    #             s_dist, s_idx = get_best_distance(
-    #                 short_sax_seq, short.pattern, short.dist)
+                l_dist, l_idx = get_best_distance(
+                    long_sax_seq, long.pattern, long.dist)
+                s_dist, s_idx = get_best_distance(
+                    short_sax_seq, short.pattern, short.dist)
 
-    #             # LONG SPREAD
-    #             if l_dist < long.dist[l_idx] and (s_dist >= short.dist[s_idx] or (s_dist < short.dist[s_idx] and l_dist < s_dist)):
-    #                 position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
-    #                 l_dist = s_dist = 0
+                # LONG SPREAD
+                if l_dist < long.dist[l_idx] and (s_dist >= short.dist[s_idx] or (s_dist < short.dist[s_idx] and l_dist < s_dist)):
+                    position, trade_array.iloc[day] = LONG_SPREAD, LONG_SPREAD
+                    l_dist = s_dist = 0
 
-    #             elif s_dist < short.dist[s_idx]:  # SHORT SPREAD
-    #                 position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
-    #                 l_dist = s_dist = 0
+                elif s_dist < short.dist[s_idx]:  # SHORT SPREAD
+                    position, trade_array.iloc[day] = SHORT_SPREAD, SHORT_SPREAD
+                    l_dist = s_dist = 0
 
-    #         elif position == LONG_SPREAD:
-    #             l_dist, l_idx = get_best_distance(
-    #                 long_sax_seq, exit_long.pattern, exit_long.dist)
-    #             if l_dist > exit_long.dist[l_idx] or day_count > long.days[l_idx]:
-    #                 position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-    #                 l_dist = s_dist = np.inf
-    #                 day_count = 0
+            elif position == LONG_SPREAD:
+                l_dist, l_idx = get_best_distance(
+                    long_sax_seq, exit_long.pattern, exit_long.dist)
+                if l_dist > exit_long.dist[l_idx] or day_count > long.days[l_idx]:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist = s_dist = np.inf
+                    day_count = 0
 
-    #         elif position == SHORT_SPREAD:
-    #             s_dist, s_idx = get_best_distance(
-    #                 short_sax_seq, exit_short.pattern, exit_short.dist)
-    #             if s_dist > exit_short.dist[s_idx] or day_count > short.days[s_idx]:
-    #                 position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
-    #                 l_dist = s_dist = np.inf
-    #                 day_count = 0
-    #         if position != CLOSE_POSITION:
-    #             day_count += 1
+            elif position == SHORT_SPREAD:
+                s_dist, s_idx = get_best_distance(
+                    short_sax_seq, exit_short.pattern, exit_short.dist)
+                if s_dist > exit_short.dist[s_idx] or day_count > short.days[s_idx]:
+                    position, trade_array.iloc[day] = CLOSE_POSITION, CLOSE_POSITION
+                    l_dist = s_dist = np.inf
+                    day_count = 0
+            if position != CLOSE_POSITION:
+                day_count += 1
 
-    #     # completes the array by propagating the last valid observation
-    #     trade_array = trade_array.fillna(method='ffill')
+        # completes the array by propagating the last valid observation
+        trade_array = trade_array.fillna(method='ffill')
 
-    #     if plot:
-    #         plot_positions(spread_test, trade_array)
+        if plot:
+            plot_positions(spread_test, trade_array)
 
-    #     return trade_array
+        return trade_array
     
 
-    def __sax(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
+    def __sax_window_range(self, spread_train, spread_full, spread_test, c1_train, c2_train, c1_test, c2_test,
               objectives=["ROI", "MDD", "SR"], DAYS_CLOSE=252, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,
               gen=100, pop=50, w_size=20, alphabet_size=10, verbose=True, plot=True, **kwargs):
 
