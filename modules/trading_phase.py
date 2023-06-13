@@ -17,7 +17,7 @@ from pymoo.optimize import minimize
 from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions
 from utils.symbolic_aggregate_approximation import pattern_distance, get_best_distance, get_best_patterns,get_results,plot_sax,get_best_patterns2
 
-from utils.genetic_algorithm import SaxObjectivesLS, SaxObjectivesGA, SaxObjectives
+from utils.genetic_algorithm import SaxObjectivesLS, SaxObjectivesGA, SaxObjectivesRange,SaxObjectives
 
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV,train_test_split
@@ -402,7 +402,7 @@ class TradingPhase:
                           ref_dirs=ref_dirs)
 
         # Get objective function
-        sax_ga = SaxObjectives(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
+        sax_ga = SaxObjectivesRange(spread=spread_train.to_numpy(), c1=c1_train.to_numpy(), c2=c2_train.to_numpy(), window_size=w_size, alphabet_size=alphabet_size,
                                DAYS_CLOSE=DAYS_CLOSE, FIXED_VALUE=FIXED_VALUE, commission=commission,  market_impact=market_impact, short_loan=short_loan, objectives=objectives)
 
         # Optimize patterns
