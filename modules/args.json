@@ -24,7 +24,7 @@
     },
     "SAX": {
         "gen": 50,
-        "pop": 50,
+        "pop": 100,
         "w_size": 252,
         "alphabet_size": 10,
         "objectives": [
