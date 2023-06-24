@@ -1,6 +1,7 @@
 
 __pycache__/
-
+modules/
+utils/
 # *.csv
 # *.xlsx
 # *.pkl
