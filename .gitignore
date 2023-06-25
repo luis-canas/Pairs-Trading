@@ -1,7 +1,8 @@
 
 __pycache__/
-modules/
-utils/
+modules/*
+utils/*
+
 # *.csv
 # *.xlsx
 # *.pkl
@@ -10,3 +11,6 @@ utils/
 !screeners/nasdaq_screener.csv
 !screeners/s&p500_screener.csv
 
+!modules/args.json
+!modules/portfolio.py
+!utils/utils.py
