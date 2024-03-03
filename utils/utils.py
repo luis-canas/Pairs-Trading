@@ -10,11 +10,18 @@ from os.path import isfile, exists
 import yfinance as yf
 import pickle
 import json
-
+from numba import njit
+import sys
+import subprocess
 file_screener = 'screeners/'
 file_input = 'results/'
 file_output = 'results/'
 file_args="modules/args.json"
+
+
+LONG_SPREAD = 1
+SHORT_SPREAD = -1
+CLOSE_POSITION = 0
 
 
 def save_pickle(item):
@@ -49,125 +56,6 @@ def open_pickle(pairs_alg, trading_alg, index, sector, start_date, end_date, mon
         return portfolio
 
 
-def study_results(res, objectives, n_gen):
-    X, F = res.opt.get("X", "F")
-
-    hist = res.history
-    print(len(hist))
-
-    n_evals = []  # corresponding number of function evaluations\
-    hist_F = []  # the objective space values in each generation
-    hist_cv = []  # constraint violation in each generation
-    hist_cv_avg = []  # average constraint violation in the whole population
-
-    for algo in hist:
-        # store the number of function evaluations
-        n_evals.append(algo.evaluator.n_eval)
-
-        # retrieve the optimum from the algorithm
-        opt = algo.opt
-
-        # store the least contraint violation and the average in each population
-        hist_cv.append(opt.get("CV").min())
-        hist_cv_avg.append(algo.pop.get("CV").mean())
-
-        # filter out only the feasible and append and objective space values
-        feas = np.where(opt.get("feasible"))[0]
-        hist_F.append(opt.get("F")[feas])
-
-    k = np.where(np.array(hist_cv) <= 0.0)[0].min()
-    print(
-        f"At least one feasible solution in Generation {k} after {n_evals[k]} evaluations.")
-    vals = hist_cv_avg
-    plt.figure(figsize=(7, 5))
-    plt.plot(n_evals, vals, color='black', lw=0.7, label="Avg. CV of Pop")
-    plt.scatter(n_evals, vals, facecolor="none", edgecolor='black', marker="p")
-    plt.title("Convergence")
-    plt.xlabel("Function Evaluations")
-    plt.ylabel("Constraint Violation")
-    plt.legend()
-    plt.show()
-
-    approx_ideal = F.min(axis=0)
-    approx_nadir = F.max(axis=0)
-
-    from pymoo.indicators.hv import Hypervolume
-
-    if len(objectives) == 2:
-        ref = np.array([1, 1])
-    elif len(objectives) == 4:
-        ref = np.array([1, 1, 1, 1])
-
-    metric = Hypervolume(ref_point=ref,
-                         norm_ref_point=False,
-                         zero_to_one=True,
-                         ideal=approx_ideal,
-                         nadir=approx_nadir)
-
-    hv = [metric.do(_F) for _F in hist_F]
-
-    plt.figure(figsize=(7, 5))
-    plt.plot(n_evals, hv, color='black', lw=0.7, label="Avg. CV of Pop")
-    plt.scatter(n_evals, hv, facecolor="none", edgecolor='black', marker="p")
-    plt.title("Convergence")
-    plt.xlabel("Function Evaluations")
-    plt.ylabel("Hypervolume")
-    plt.show()
-
-    from pymoo.util.running_metric import RunningMetricAnimation
-
-    running = RunningMetricAnimation(delta_gen=n_gen,
-                                     n_plots=1,
-                                     key_press=False,
-                                     do_show=True)
-
-    for algorithm in res.history:
-        running.update(algorithm)
-
-    if len(objectives) == 2:
-        plt.figure(figsize=(7, 5))
-        plt.scatter(F[:, 0], F[:, 1], s=30,
-                    facecolors='none', edgecolors='blue')
-        plt.title("Objective Space")
-        plt.xlabel(objectives[0])
-        plt.ylabel(objectives[1])
-        plt.show()
-    elif len(objectives) == 4:  # plottar 3 eixos é o melhor que se pode fazer
-        fig = plt.figure(figsize=(10, 8))
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(F[:, 2], F[:, 1], F[:, 3], zdir='z',
-                   s=30, c=None, depthshade=True)
-        ax.set_xlabel(objectives[2])
-        ax.set_ylabel(objectives[1])
-        ax.set_zlabel(objectives[3])
-        plt.title("Objective Space")
-        plt.show()
-
-
-def results_to_tickers(res, tickers):
-
-    selected_stocks = [[]
-                       for _ in range(len(res.X) * 2)]  # two components per pair
-
-    counter = 0
-
-    for result in res.X:
-        for i in range(len(result)):
-            if result[i]:
-                if i < len(result) // 2:
-                    selected_stocks[counter].append(tickers[i])
-                else:
-                    selected_stocks[counter +
-                                    1].append(tickers[i - (len(result) // 2)])
-
-        counter += 2
-
-    pairs = [[selected_stocks[i], selected_stocks[i + 1]]
-             for i in range(0, len(selected_stocks), 2)]
-
-    return pairs
-
-
 def dataframe_interval(start_date, end_date, data):
 
     mask = (data.index > start_date) & (data.index <= end_date)
@@ -192,21 +80,70 @@ def date_change(date, timeframe):
     return newdate
 
 
-def coint_spread(c1, c2):
-    S1 = np.asarray(c1)
-    S2 = np.asarray(c2)
-    S1_c = sm.add_constant(S1)
 
-    results = sm.OLS(S1_c, S2).fit()
+def coint_spread2(c1_train, c2_train,c1_test=1, c2_test=1,c1_full=1, c2_full=1):
+    S1 = (np.asarray(c1_train))
+    S2 = (np.asarray(c2_train))
+    S2_c = sm.add_constant(S2)
 
-    b = results.params[0][1]
+    results = sm.OLS(S1, S2_c).fit()
 
-    coint_spread = c1 - b*c2
+    b = results.params[1]
 
-    return b, coint_spread
+    spread_train = (c1_train) - b*(c2_train)
+    spread_full = (c1_full)-b*(c2_full)
+    spread_test = (c1_test)-b*(c2_test)
+    return b, spread_train,spread_test,spread_full
+
+def coint_spread(c1_train, c2_train,c1_test=1, c2_test=1,c1_full=1, c2_full=1):
+    S1 = np.log(np.asarray(c1_train))
+    S2 = np.log(np.asarray(c2_train))
+    S2_c = sm.add_constant(S2)
+
+    results = sm.OLS(S1, S2_c).fit()
+
+    b = results.params[1]
+
+    spread_train = np.log(c1_train) - b*np.log(c2_train)
+    spread_full = np.log(c1_full)-b*np.log(c2_full)
+    spread_test = np.log(c1_test)-b*np.log(c2_test)
+    return b, spread_train,spread_test,spread_full
+
+from statsmodels.tsa.vector_ar.vecm import coint_johansen,VECM
 
 
-def compute_zscore(full_spread, test_spread):
+import math
+
+def compute_zscore(full_spread, test_spread,interval):
+
+    zs_interval= (len(full_spread)-len(test_spread))//1
+    # zs_interval= (len(test_spread))//1
+    # zs_interval=math.ceil(calculate_half_life(full_spread[:(len(full_spread)-len(test_spread))]))*2
+    zs_interval=interval
+
+    i = test_spread.index[0]
+    offset = full_spread.index.get_loc(i)
+
+    norm_spread = np.zeros(len(test_spread))
+
+    mean = np.zeros(len(test_spread))
+    std = np.zeros(len(test_spread))
+    t_spread = np.zeros(len(test_spread))
+
+    for day, daily_value in enumerate(test_spread):
+        
+        spread_to_consider = full_spread[(day+1) + offset - zs_interval: (day+1) + offset]
+
+        norm_spread[day] = (
+            daily_value - spread_to_consider.mean()) / spread_to_consider.std()
+
+        mean[day] = spread_to_consider.mean()
+        std[day] = spread_to_consider.std()
+        t_spread[day] = daily_value
+
+    return norm_spread, mean, std, t_spread
+
+def compute_zscore2(full_spread, test_spread):
 
     i = test_spread.index[0]
     offset = full_spread.index.get_loc(i)
@@ -241,39 +178,85 @@ def price_of_entire_component(series, component):
     return combined_series
 
 
-def get_data(index, sector, start, end):
+def get_data(index):
+    compute_index=False
 
-    isExist = exists(file_input)
-    if not isExist:
-        makedirs(file_input)
+    file=file_screener+f'{index}_screener.csv'
+    isExist = exists(file)
+    if isExist:
+        # Load the data from a pickle file
+        screener = pd.read_csv(file, encoding='latin1')
 
-    if not isfile(file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv'):
-        df = pd.read_csv(
-            file_screener+f'{index}_screener.csv', encoding='latin1')
-
-        mask = df['Sector'].str.contains(sector)
-        mask = mask.where(pd.notnull(mask), False).tolist()
-        tickers = df['Symbol']
-        tickers = tickers[mask].tolist()
-
-        data = yf.download(tickers, start=datetime(
-            *start), end=datetime(*end))['Close']
-
-        data.to_csv(
-            file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv')
     else:
-        data = pd.read_csv(
-            file_input+f'{index}_{sector}_{date_string(start)}_{date_string(end)}.csv', index_col='Date')
+        sys.exit("Screener not found!")
 
-    return data
+    file=file_screener+'data.pkl'
+    isExist = exists(file)
+    if isExist:
+        # Load the data from a pickle file
+        with open(file, 'rb') as f:
+            data = pickle.load(f)
+    else:
+        data={}
 
-    # start = datetime(*start)
-    # end = datetime(*end)
+    if compute_index or index+'_series' not in data or index+'_sector' not in data:
 
-    # tickers = ['AAPL', 'ADBE', 'ORCL', 'EBAY', 'MSFT', 'QCOM', 'HPQ', 'JNPR', 'AMD', 'IBM', 'SPY']
+        unique = pd.unique(screener['Tickers'].str.split(',', expand=True).values.ravel('K')).tolist()
+        tickerSymbols = [value for value in unique if isinstance(value, str)]
 
-    # return yf.download(tickers, start, end)['Close']
+        # Initialize an empty dictionary to store the sectors
+        sectors = {}
 
+        tickers=tickerSymbols.copy()
+
+        # Loop through the list of ticker symbols
+        for tickerSymbol in tickerSymbols:
+            try:
+                # Get the ticker data
+                tickerData = yf.Ticker(tickerSymbol)
+
+                # Get the sector
+                sector = tickerData.info['sector']
+
+                # If the sector is not in the dictionary, add it
+                if sector not in sectors:
+                    sectors[sector] = []
+
+                # Add the ticker symbol to the list of tickers in the sector
+                sectors[sector].append(tickerSymbol)
+            except Exception as e:
+                tickers.remove(tickerSymbol)
+
+        start=screener['Date'].iloc[0]
+        end=screener['Date'].iloc[-1]
+        
+        close = yf.download(tickers, start=start, end=end,auto_adjust=True,ignore_tz=True)['Close']
+        close = close.reset_index()
+        close['Date'] = close['Date'].dt.normalize()
+        close = close.set_index('Date')
+
+        data.update({index+'_series': close,index+'_sector': sectors})
+
+        # Save the array to a pickle file
+        with open(file, 'wb') as f:
+            pickle.dump(data, f)
+
+        return close,screener,sectors
+    else:
+        return data[index+'_series'],screener,data[index+'_sector']
+    
+def get_membership(data,membership,today):
+
+    # Get the previous or equal date of today in the membership DataFrame
+    previous_date = membership[membership['Date'] <= today]['Date'].iloc[-1]
+
+    # Get the tickers inside of it to a list
+    tickers = membership[membership['Date'] == previous_date]['Tickers'].str.split(',').sum()
+
+    # Apply a mask of those values to the price series with all the assets
+    df_price_filtered = data.filter(items=tickers)
+
+    return df_price_filtered
 
 def tuple_int(string):
     try:
@@ -309,75 +292,659 @@ def change_args(model,parameter,newvalue):
         # Write the modified dictionary to the file
         json.dump(data, f,indent=4)
 
-def max_drawdown(s, verbose = False):
-    i = np.argmax(np.maximum.accumulate(s) - s) # end of the period
-    j = np.argmax(s[:i]) # start of period
+import seaborn as sns
+def plot_positions(spread_test, spread_full, positions, window, profit_loss,portfolio_value):
+    profit_loss = np.array(profit_loss)
+    zspread = compute_zscore(spread_full, spread_test, window)[0]
+    i = spread_test.index[0]
+    offset = spread_full.index.get_loc(i)
 
-    mdd = ((s[j] - s[i])/s[j] ) * 100
-
-    if verbose:
-        plt.plot(s)
-        plt.plot([i, j], [s[i], s[j]], 'o', color='Red', markersize=10)
-        plt.show()
-
-    return mdd, i, j
-
-def sharpe_ratio(cash):
-
-    # Compute daily change in cash
-    portfolio_returns = np.diff(cash)
-
-    # Calculate the annualized average return and standard deviation of the portfolio
-    average_annual_return = np.mean(portfolio_returns) * len(portfolio_returns)
-    annualized_standard_deviation = np.std(portfolio_returns) * np.sqrt(len(portfolio_returns))
-
-    # risk-free rate of 3%
-    risk_free_rate = 0.03
-
-    # Calculate the Sharpe Ratio
-    sharpe_ratio = (average_annual_return - risk_free_rate) / annualized_standard_deviation
-
-    return sharpe_ratio
-
-def plot_positions(spread, positions):
-
-    LONG_SPREAD = 1
-    SHORT_SPREAD = -1
-    CLOSE_POSITION = 0
-
-    def first_occurrences(arr, val):
-        mask = (arr == val).astype(int)
-        diff = np.diff(mask)
-        return np.where(diff == 1)[0] + 1
+    label_indices = np.linspace(0, len(zspread)-1, 10).astype(int)
+    fig, axs = plt.subplots(2, 1, sharex=True)  # Create two subplots sharing x axis
     
-    fig, ax = plt.subplots(figsize=(15,8))
+    sns.set_theme()
+    sns.set_style("dark")
+    # Increase the size of the text elements
+    sns.set_context("paper", font_scale=2)
 
-    ax.plot(spread, label='Normalized Spread')
+    # Plot z-spread
+    axs[0].plot(zspread, label='Normalized Spread')
+    axs[0].set_ylabel("Normalized Spread")
+    axs[0].axhline(y=2, color='black', linestyle='--', label='Short Threshold')
+    axs[0].axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
+    axs[0].set_xlim(positions.index.min(), positions.index.max())
+    axs[0].legend()
 
-    long_entries = first_occurrences(positions,LONG_SPREAD)
+    # Plot position
+    axs[1].step(range(len(positions)), positions, label='Position', where='post')
+    axs[1].set_xlabel("Date")
+    axs[1].set_ylabel("Position")
 
-    if len(long_entries) > 0:
-        ax.scatter(long_entries, spread[long_entries], marker='^', color='g', label='Long Entry',s=100)
+    # Apply grid to both subplots
+    axs[0].grid(True)
+    axs[1].grid(True)
 
-    short_entries = first_occurrences(positions,SHORT_SPREAD)
+    # Initialize variables for iterating through profit_loss
+    current_position = 0
 
-    if len(short_entries) > 0:
-        ax.scatter(short_entries, spread[short_entries], marker='v', color='b', label='Short Entry',s=100)
+    # Iterate through profit_loss to determine color for each step
+    for i, color in enumerate(profit_loss):
+        while current_position < len(positions) and positions[current_position] == 0:
+            current_position += 1
 
-    exits = first_occurrences(positions,CLOSE_POSITION)
+        start_index = current_position
 
-    if len(exits) > 0:
-        ax.scatter(exits, spread[exits], marker='o', color='r', label='Exit',s=100)
+        while current_position < len(positions)-1 and positions[current_position] == positions[current_position+1]:
+            current_position += 1
 
+        current_position += 1
 
+        end_index = current_position
+        # Plot step
+        axs[1].axvspan(start_index, min(end_index, len(positions) - 1), facecolor='green' if color == 1 else 'red', alpha=0.3)
 
+    # Legend for the second graph
+    legend_elements = [plt.Rectangle((0,0),1,1,facecolor='green',alpha=0.3,label='Profit'),
+                       plt.Rectangle((0,0),1,1,facecolor='red',alpha=0.3,label='Loss')] + axs[1].get_legend_handles_labels()[0]
+    axs[1].legend(handles=legend_elements, loc='upper left')
 
-
-    ax.legend()
-    ax.set_xlabel('Day')
-    ax.set_ylabel('Normalized Spread')
+    # Adjust legend size
+    axs[0].legend(handles=axs[0].get_legend_handles_labels()[0], loc='upper left', prop={'size': 12})
+    axs[1].legend(handles=legend_elements, loc='upper left', prop={'size': 12})
 
     plt.show()
 
-def round(data):
-    return np.round(data, decimals=0).astype(int)
+    # Plot position
+    # zspread_train=(spread_full[:offset]-spread_full[:offset].mean())/spread_full[:offset].std()
+    # axs[2].plot(np.concatenate((zspread_train,zspread)), label='Normalized Spread')
+    # axs[2].axvline(x=offset)
+    # axs[2].set_xlabel("Date")
+    # axs[2].axhline(y=2, color='black', linestyle='--', label='Short Threshold')
+    # axs[2].axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
+    # axs[2].set_ylabel("Spread")
+    # axs[2].set_xlim(0, len(np.concatenate((zspread_train,zspread)))-1)
+    # axs[2].legend()
+
+    # plt.legend()
+
+
+
+
+@njit
+def max_accumulate(arr):
+    max_val = arr[0]
+    max_cumulative = np.empty_like(arr)
+    for i in range(arr.shape[0]):
+        max_val = max(max_val, arr[i])
+        max_cumulative[i] = max_val
+    return max_cumulative
+
+@njit
+def max_drawdown(s):
+
+    try:
+        i = np.argmax(max_accumulate(s) - s) # end of the period
+        j = np.argmax(s[:i]) # start of period
+
+        mdd = ((s[j] - s[i])/s[j] ) * 100
+
+    except:
+        mdd=100
+        i=j=0
+
+    return mdd, i, j
+
+
+def sharpe_ratio(cash,date):
+    rf = {
+        1987: 5.775 / 100,
+        1988: 6.6675 / 100,
+        1989: 8.111666667 / 100,
+        1990: 7.493333333 / 100,
+        1991: 5.375 / 100,
+        1992: 3.431666667 / 100,
+        1993: 2.9975 / 100,
+        1994: 4.246666667 / 100,
+        1995: 5.49 / 100,
+        1996: 5.005833333 / 100,
+        1997: 5.060833333 / 100,
+        1998: 4.776666667 / 100,
+        1999: 4.638333333 / 100,
+        2000: 5.816666667 / 100,
+        2001: 3.388333333 / 100,
+        2002: 1.6025 / 100,
+        2003: 1.010833333 / 100,
+        2004: 1.371666667 / 100,
+        2005: 3.146666667 / 100,
+        2006: 4.726666667 / 100,
+        2007: 4.353333333 / 100,
+        2008: 1.365 /100 ,
+        2009: 0.15 /100 ,
+        2010: 0.136666667 /100 ,
+        2011: 0.0525 /100 ,
+        2012: 0.085833333 /100 ,
+        2013: 0.058333333 /100 ,
+        2014: 0.0325 /100 ,
+        2015: 0.0525 /100 ,
+        2016: 0.3175 /100 ,
+        2017: 0.930833333 /100 ,
+        2018: 1.939166667 /100 ,
+        2019: 2.060833333 /100 ,
+        2020: 0.365 /100 ,
+        2021: 0.044166667 /100 ,
+        2022: 2.021666667 /100 
+    }
+
+
+    date_key = datetime.strptime(date, '%Y-%m-%d').year
+
+    # Compute daily returns
+    ret = pd.Series(np.diff(cash) / cash[:-1], index=pd.date_range(start=date, periods=len(cash)-1))
+
+    # Number of trading days in a year
+    n_days = 252
+
+    # Resample returns to daily frequency
+    daily_index = ret.resample('D').last().dropna().index
+    daily_ret = (ret + 1).resample('D').prod() - 1
+
+    # Remove added days from resample
+    daily_ret = daily_ret.loc[daily_index]
+
+    # Calculate annualized return as the cumulative return of the last period
+    annualized_ret = (np.cumprod(1 + ret) - 1)[-1]
+    if np.std(daily_ret) != 0:
+        try:
+            risk_free_rate = rf[date_key]
+            sharpe_ratio = (annualized_ret - risk_free_rate) / (np.std(daily_ret) * np.sqrt(n_days))
+        except:
+            sharpe_ratio = annualized_ret / (np.std(daily_ret) * np.sqrt(n_days))
+    else:
+        sharpe_ratio=0
+        
+
+    return sharpe_ratio
+
+
+
+def features_ts(arr,name='y',diff=False):
+
+    df = pd.DataFrame(arr.values, columns=[name],index=arr.index)
+
+    if diff:
+        df[name]=df[name].diff()
+
+    
+    delta = df[name].diff()
+    gain, loss = delta.copy(), delta.copy()
+    gain[gain < 0] = 0
+    loss[loss > 0] = 0
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.abs().rolling(14).mean()
+    rs = avg_gain / avg_loss
+    # df['RSI'] = 100 - (100 / (1 + rs))
+        
+    exp1 = df[name].ewm(span=12, adjust=False).mean()
+    exp2 = df[name].ewm(span=26, adjust=False).mean()
+    
+    n = 10
+   
+    df['daily_return'] = df[name].diff()
+   
+
+    df['dEMA_9'] = df[name].ewm(span=9).mean()
+    df['dEMA_21'] = df[name].ewm(span=21).mean()
+    df['dSMA_5'] = df[name].rolling(window=10).mean()
+    df['dSMA_10'] = df[name].rolling(window=20).mean()
+    df['dSMA_15'] = df[name].rolling(window=40).mean()
+    sma = df[name].rolling(window=20).mean()
+    std = df[name].rolling(window=20).std()
+   
+    delta = df[name].diff()
+    gain, loss = delta.copy(), delta.copy()
+    gain[gain < 0] = 0
+    loss[loss > 0] = 0
+    avg_gain = gain.rolling(14).mean()
+    avg_loss = loss.abs().rolling(14).mean()
+    rs = avg_gain / avg_loss
+    exp1 = df[name].ewm(span=12, adjust=False).mean()
+    exp2 = df[name].ewm(span=26, adjust=False).mean()
+    macd = exp1-exp2
+ 
+    n = 10
+   
+    close = df[name]
+    delta = close.diff()
+    delta = delta[1:]
+    pricesUp = delta.copy()
+    pricesDown = delta.copy()
+    pricesUp[pricesUp < 0] = 0
+    pricesDown[pricesDown > 0] = 0
+    rollUp = pricesUp.rolling(n).mean()
+    rollDown = pricesDown.abs().rolling(n).mean()
+    rs = rollUp / rollDown
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    df['RSI'] = rsi.fillna(0)
+    EMA_12 = pd.Series(df[name].ewm(span=12, min_periods=12).mean())
+    EMA_26 = pd.Series(df[name].ewm(span=26, min_periods=26).mean())
+    df['MACD'] = pd.Series(EMA_12 - EMA_26)
+    df['MACD_signal'] = pd.Series(df.MACD.ewm(span=9, min_periods=9).mean())
+    return df
+
+def mean_absolute_scaled_error(y_true, y_pred, y_train):
+    """
+    Calculate the Mean Absolute Scaled Error (MASE)
+    :param y_true: array of true values
+    :param y_pred: array of predicted values
+    :param y_train: array of training values
+    :return: MASE score
+    """
+    n = y_train.shape[0]
+    d = np.abs(np.diff(y_train)).sum() / (n - 1)
+    errors = np.abs(y_true - y_pred)
+    return errors.mean() / d
+
+def hurst_rolling(x):
+    lags = range(2, 100)
+    tau = [np.sqrt(np.std(np.subtract(x[lag:], x[:-lag]))) for lag in lags]
+    poly = np.polyfit(np.log(lags), np.log(tau), 1)
+    return poly[0] * 2.0
+def plot_forecast(Y_train_df,y_true, Y_hat_df, iteration, start,end,pair,models):
+    
+    # Plot predictions
+    fig, ax = plt.subplots(1, 1, figsize = (20, 7))
+    Y_hat_df = pd.merge(y_true,Y_hat_df, how='left', on=['ds'])
+    plot_df = pd.concat([Y_train_df, Y_hat_df]).set_index('ds')
+
+    plot_df.plot(ax=ax, linewidth=2)
+
+    ax.set_title('AirPassengers Forecast', fontsize=22)
+    ax.set_ylabel('Monthly Passengers', fontsize=20)
+    ax.set_xlabel('Timestamp [t]', fontsize=20)
+    ax.legend(prop={'size': 15})
+    ax.grid()
+
+
+    pair_string = '_'.join([x[0] for x in pair])
+    model_string='_'.join(models)
+    filename = f'results\\img\\{start}_{end}_{pair_string}_{model_string}_{iteration}'
+    filename = filename.replace(':', '_')
+    plt.savefig(filename)
+
+def plot_forecast2(real, forecast, horizon, trading_decisions,start,end,pair,models):
+    
+    # Shift the forecast array by the specified horizon
+    shifted_forecast = pd.DataFrame(forecast).shift(horizon)
+
+    # Plot the data
+    plt.plot(real, label='Real')
+    plt.plot(shifted_forecast, label='Forecast')
+
+    # Add markers for trading decisions
+    for i, decision in enumerate(trading_decisions):
+        if decision == 1:
+            plt.scatter(i, real[i], marker='^', color='green')
+        elif decision == -1:
+            plt.scatter(i, real[i], marker='v', color='red')
+        elif decision == 0:
+            plt.scatter(i, real[i], marker='o', color='blue')
+    
+    # Add the horizon value to the title
+    plt.title(f'Horizon: {horizon}')
+    plt.legend()
+
+
+    pair_string = '_'.join([x[0] for x in pair])
+    model_string='_'.join(models)
+    filename = f'results\\img\\{start}_{end}_{pair_string}_{model_string}'
+    filename = filename.replace(':', '_')
+    plt.savefig(filename)
+    plt.close()
+
+
+def calculate_threshold(training_period,validation_period,c1_val,c2_val,val_fc):
+        # Define a function to calculate the spread percentage change
+    
+
+
+    # Calculate the spread percentage change during the formation period
+    x = pct_change = training_period.pct_change()
+
+    # Calculate the positive and negative percentage change distributions
+    f_plus = x[x > 0]
+    f_minus = x[x < 0]
+
+    # Calculate the decile-based and quintile-based thresholds
+    alpha_L_candidates = [np.percentile(f_plus, 80), np.percentile(f_plus, 90)]
+    alpha_S_candidates = [np.percentile(f_minus, 20), np.percentile(f_minus, 10)]
+
+    return np.min(alpha_L_candidates),np.max(alpha_S_candidates)
+    # Define a function to evaluate the performance of the trading model on the validation set
+    def evaluate(alpha_S, alpha_L):
+
+        decision_array = pd.Series([np.nan for i in range(len(validation_period))])
+
+        decision_array.iloc[0] = decision_array.iloc[-1] = CLOSE_POSITION
+        for day in range(len(validation_period)-1):
+
+            delta=val_fc[day]-validation_period[day]
+
+            if delta>alpha_L:
+                decision_array[day]=LONG_SPREAD
+            if delta<alpha_S:
+                decision_array[day]=SHORT_SPREAD
+
+        trade_spread(c1_val, c2_val, decision_array)
+
+        return R_val
+
+    # Find the best threshold combination
+    best_R_val = -np.inf
+    best_alpha_S = None
+    best_alpha_L = None
+    for alpha_S in alpha_S_candidates:
+        for alpha_L in alpha_L_candidates:
+            R_val = evaluate(alpha_S, alpha_L)
+            if R_val > best_R_val:
+                best_R_val = R_val
+                best_alpha_S = alpha_S
+                best_alpha_L = alpha_L
+
+    return best_alpha_L,best_alpha_S
+
+
+def trade_spread(c1, c2, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1):
+
+    NB_TRADING_DAYS=len(c1)
+    # Close all positions in the last day of the trading period whether they have converged or not
+    trade_array.iloc[-1] = CLOSE_POSITION
+
+    # define trading costs
+    fixed_costs_per_trade = (
+        commission + market_impact) / 100  # remove percentage
+    short_costs_per_day = FIXED_VALUE * \
+        (short_loan / NB_TRADING_DAYS) / 100  # remove percentage
+
+    # 2 positions, one for each component of the pair
+    # The first position concerns the fist component, c1, and 2nd the c2
+    stocks_in_hand = np.zeros(2)
+    # tracks the evolution of the balance day by day
+    cash_in_hand = np.zeros(len(trade_array))
+    cash_in_hand[0] = FIXED_VALUE  # starting balance
+    portfolio_value = np.zeros(len(trade_array))
+    portfolio_value[0] = cash_in_hand[0]
+
+    n_trades = 0  # how many trades were made?
+    # how many profitable/unprofitable trades were made
+    profitable_unprofitable = np.zeros(2)
+
+    # how many days has this position been open?
+    days_open = np.zeros(len(trade_array))
+
+    for day, decision in enumerate(trade_array):
+        # the first day of trading is excluded to stabilize the spread
+        # and avoid  accessing positions out of range in the decision array when executing decision_array[day-1]
+        if day == 0:
+            continue  # skip the first day as mentioned above
+
+        # at the beginning of the day we still have the cash we had the day before
+        cash_in_hand[day] = cash_in_hand[day - 1]
+        portfolio_value[day] = portfolio_value[day - 1]
+
+        # at the beginning of the day the position hasn't been altered
+        days_open[day] = days_open[day-1]
+
+        # the state has changed and the TS is called to act
+        if trade_array[day] != trade_array[day - 1]:
+
+            n_trades += 1
+
+            sale_value = stocks_in_hand[0] * \
+                c1[day] + stocks_in_hand[1] * c2[day]
+            # 2 closes, so 2*transaction costs
+            cash_in_hand[day] += sale_value * (1 - 2*fixed_costs_per_trade)
+
+            # both positions were closed
+            stocks_in_hand[0] = stocks_in_hand[1] = 0
+
+            days_open[day] = 0  # the new position was just opened
+
+            if sale_value > 0:
+                profitable_unprofitable[0] += 1  # profit
+            elif sale_value < 0:
+                profitable_unprofitable[1] += 1  # loss
+
+            if decision == SHORT_SPREAD:  # if the new decision is to SHORT the spread
+                # if the previous trades lost money I have less than FIXED VALUE to invest
+                value_to_buy = min(FIXED_VALUE, cash_in_hand[day])
+                # long c2
+                cash_in_hand[day] += -value_to_buy
+                stocks_in_hand[1] = value_to_buy / c2[day]
+                # short c1
+                cash_in_hand[day] += value_to_buy
+                stocks_in_hand[0] = -value_to_buy / c1[day]
+                # apply transaction costs (with 2 operations made: short + long)
+                cash_in_hand[day] -= 2*value_to_buy*fixed_costs_per_trade
+
+            elif decision == LONG_SPREAD:  # if the new decision is to LONG the spread
+                value_to_buy = min(FIXED_VALUE, cash_in_hand[day])
+                # long c1
+                cash_in_hand[day] += -value_to_buy
+                stocks_in_hand[0] = value_to_buy / c1[day]
+                # short c2
+                cash_in_hand[day] += value_to_buy
+                stocks_in_hand[1] = -value_to_buy / c2[day]
+                # apply transaction costs (with 2 operations made: short + long)
+                cash_in_hand[day] -= 2 * \
+                    value_to_buy * fixed_costs_per_trade
+
+        # short rental costs are applied daily!
+        # means there's an open position
+        if stocks_in_hand[0] != 0 or stocks_in_hand[1] != 0:
+            cash_in_hand[day] -= short_costs_per_day
+            days_open[day] += 1
+        # at the end of the day, the portfolio value takes in consideration the value of the stocks in hand
+        portfolio_value[day] = cash_in_hand[day] + \
+            stocks_in_hand[0] * c1[day] + stocks_in_hand[1] * c2[day]
+
+    return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
+
+
+def calculate_dynamic_beta(c1, c2, test_c1, test_c2):
+    
+
+    offset = c1.index.get_loc(test_c1.index[0])
+
+    # Calculate the beta using the training data
+    beta,_ = coint_spread(c1[:offset], c2[:offset])
+
+
+    # Create an array to store the betas for the whole data
+    all_betas = np.empty(len(c1))
+
+    # Fill the array with the beta value from the training set
+    all_betas[:offset] = beta
+
+
+    # Calculate the betas for the test set
+    for i in range(offset, len(c1)):
+        beta,_ = coint_spread(c1[:i], c2[:i])
+
+        all_betas[i] = beta
+
+
+    spread_full=c1-all_betas*c2
+    dynamic_beta=all_betas[offset:]
+    spread_test=test_c1-dynamic_beta*test_c2
+
+    return dynamic_beta,spread_full,spread_test
+
+
+def trade_spread(c1_test, c2_test, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,beta=1,sizing=1,leverage=1):
+
+    if sizing:
+        beta=1
+
+    # Close all positions in the last day of the trading period whether they have converged or not
+    trade_array.iloc[-1] = CLOSE_POSITION
+
+    # define trading costs
+    fixed_costs_per_trade = (
+        commission + market_impact) / 100  # remove percentage
+    short_costs_per_day = FIXED_VALUE * \
+        (short_loan / 252) / 100  # remove percentage
+
+    # 2 positions, one for each component of the pair
+    # The first position concerns the fist component, c1, and 2nd the c2
+    stocks_in_hand = np.zeros(2)
+    # tracks the evolution of the balance day by day
+    cash_in_hand = np.zeros(len(trade_array))
+    cash_in_hand[0] = FIXED_VALUE  # starting balance
+    portfolio_value = np.zeros(len(trade_array))
+    portfolio_value[0] = cash_in_hand[0]
+
+    n_trades = 0  # how many trades were made?
+    # how many profitable/unprofitable trades were made
+    profitable_unprofitable = np.zeros(2)
+
+    # how many days has this position been open?
+    days_open = np.zeros(len(trade_array))
+
+    for day, decision in enumerate(trade_array):
+        # the first day of trading is excluded to stabilize the spread
+        # and avoid  accessing positions out of range in the decision array when executing decision_array[day-1]
+        if day == 0:
+            continue  # skip the first day as mentioned above
+
+        # at the beginning of the day we still have the cash we had the day before
+        cash_in_hand[day] = cash_in_hand[day - 1]
+        portfolio_value[day] = portfolio_value[day - 1]
+
+        # at the beginning of the day the position hasn't been altered
+        days_open[day] = days_open[day-1]
+
+        # the state has changed and the TS is called to act
+        if trade_array[day] != trade_array[day - 1]:
+
+            n_trades += 1
+
+            sale_value = stocks_in_hand[0] * c1_test[day]+stocks_in_hand[1] * c2_test[day]
+            # apply transaction costs
+            cash_in_hand[day] += sale_value * (1 - fixed_costs_per_trade)
+
+            # both positions were closed
+            stocks_in_hand[0] = stocks_in_hand[1] = 0
+
+            days_open[day] = 0  # the new position was just opened
+
+            if sale_value > 0:
+                profitable_unprofitable[0] += 1  # profit
+            elif sale_value < 0:
+                profitable_unprofitable[1] += 1  # loss
+
+            if decision == SHORT_SPREAD:  # if the new decision is to SHORT the spread
+                # if the previous trades lost money I have less than FIXED VALUE to invest
+                value_to_buy = min(FIXED_VALUE,max(cash_in_hand[day],0)) * leverage
+                # long c2
+                cash_in_hand[day] += -value_to_buy * beta / (beta+1)
+                stocks_in_hand[1] = value_to_buy * beta / (beta+1) / c2_test[day] 
+                # short c1
+                cash_in_hand[day] += value_to_buy / (beta+1)
+                stocks_in_hand[0] = -value_to_buy / (beta+1) / c1_test[day]
+                # apply transaction costs (with 2 operations made: short + long)
+                cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade
+
+            elif decision == LONG_SPREAD:  # if the new decision is to LONG the spread
+                value_to_buy = min(FIXED_VALUE, max(cash_in_hand[day],0)) * leverage
+                # long c1
+                cash_in_hand[day] += -value_to_buy / (beta+1)
+                stocks_in_hand[0] = value_to_buy / (beta+1) / c1_test[day] 
+                # short c2
+                cash_in_hand[day] += value_to_buy * beta / (beta+1)
+                stocks_in_hand[1] = -value_to_buy * beta / (beta+1) / c2_test[day]  
+                # apply transaction costs (with 2 operations made: short + long)
+                cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade
+
+        # short rental costs are applied daily!
+        # means there's an open position
+        if stocks_in_hand[0] != 0 or stocks_in_hand[1] != 0:
+            cash_in_hand[day] -= short_costs_per_day
+            days_open[day] += 1
+        # at the end of the day, the portfolio value takes in consideration the value of the stocks in hand
+        portfolio_value[day] = cash_in_hand[day] + \
+            stocks_in_hand[0] * c1_test[day] + stocks_in_hand[1] * c2_test[day]
+
+    return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable
+
+
+def normal(array):
+    return array/np.sum(array)
+
+
+def run(pairs_alg,trading_alg,index,sector,start_date,end_date,months_trading,months_forming):
+
+    command = ["python", "main.py",
+           "--pairs_alg", pairs_alg,
+           "--trading_alg", trading_alg,
+           "--index", index,
+           "--sector", sector,
+           "--start_date", f"{start_date[0]},{start_date[1]},{start_date[2]}",
+           "--end_date", f"{end_date[0]},{end_date[1]},{end_date[2]}",
+           "--months_trading", str(months_trading),
+           "--months_forming", str(months_forming)]
+    
+    execute = subprocess.run(command, capture_output=True, text=True)
+
+    if execute.returncode != 0:
+        print("Error occurred.")
+        print(execute.stderr)
+    else:
+        print("Completed successfully.")
+        print(execute.stdout)
+
+
+def default_args():
+
+    default = {
+        "DIST": {
+            "pair_number": 10
+        },
+        "COINT": {
+            "pvalue_threshold": 0.01,
+            "hurst_threshold": 0.5
+        },
+        "GA": {
+            "gen": 1000,
+            "pop": 100,
+            "cv": 0.7,
+            "mt": 0.1,
+            "callback": 100,
+            "percentage": 0.1
+        },
+        "TH": {
+            "entry_l": -2,
+            "entry_s": 2,
+            "close_l": 0,
+            "close_s": 0,
+            "window": 21
+        },
+        "FA": {
+            "batch": 1,
+            "batch_error": 25,
+            "model": [
+                "light"
+            ],
+            "horizon": 5
+        },
+        "TRADING": {
+            "commission": 0.05,
+            "market_impact": 0,
+            "short_loan": 0,
+            "leverage": 2,
+            "weights": "ga"
+        }
+    }
+
+    for alg, arg_dict in default.items():
+        for arg, value in arg_dict.items():
+            change_args(alg, arg, value)

@@ -1,16 +1,7 @@
 
-__pycache__/
-modules/*
-utils/*
-
-# *.csv
-# *.xlsx
-# *.pkl
+**/__pycache__/
+lightning_logs/
+catboost_logs/
 
 
-!screeners/nasdaq_screener.csv
-!screeners/s&p500_screener.csv
 
-!modules/args.json
-!modules/portfolio.py
-!utils/utils.py

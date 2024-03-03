@@ -1,47 +1,39 @@
 {
     "DIST": {
-        "pair_number": 5
+        "pair_number": 10
     },
     "COINT": {
-        "pvalue_threshold": 0.05,
+        "pvalue_threshold": 0.01,
         "hurst_threshold": 0.5
     },
-    "NSGA": {
-        "gen": 80,
-        "pop": 50,
-        "objective_functions": [
-            "ADF",
-            "spread_volatility",
-            "NZC",
-            "half_life"
-        ],
-        "min_elements": 1,
-        "max_elements": 1
+    "GA": {
+        "gen": 1000,
+        "pop": 100,
+        "cv": 0.7,
+        "mt": 0.1,
+        "callback": 100,
+        "percentage": 0.1
     },
     "TH": {
-        "entry": 2,
-        "close": 0
+        "entry_l": -2,
+        "entry_s": 2,
+        "close_l": 0,
+        "close_s": 0,
+        "window": 21
     },
-    "SAX": {
-        "gen": 50,
-        "pop": 50,
-        "w_size": 252,
-        "alphabet_size": 10,
-        "objectives": [
-            "ROI",
-            "MDD",
-            "SR"
+    "FA": {
+        "batch": 1,
+        "batch_error": 25,
+        "model": [
+            "light"
         ],
-        "DAYS_CLOSE": 252,
-        "FIXED_VALUE": 1000,
-        "commission": 0.08,
-        "market_impact": 0.2,
-        "short_loan": 1
+        "horizon": 5
     },
-    "FA": {},
     "TRADING": {
-        "commission": 0.08,
-        "market_impact": 0.2,
-        "short_loan": 1
+        "commission": 0.05,
+        "market_impact": 0,
+        "short_loan": 0,
+        "leverage": 2,
+        "weights": "ga"
     }
 }
