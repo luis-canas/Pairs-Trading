@@ -28,7 +28,7 @@
         "model": [
             "light3"
         ],
-        "horizon": 4
+        "horizon": 1
     },
     "TRADING": {
         "commission": 0.05,
