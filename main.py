@@ -53,6 +53,7 @@ def main(pairs_alg, trading_alg, index, sector, start_date, end_date, months_tra
 
     # Evaluate portfolio after simulations and get performance metrics
     portfolio.evaluate()
+    portfolio.model(trading_phase.model_performance(trading_alg))
 
     # Save portfolio to .pkl
     save_pickle(portfolio)

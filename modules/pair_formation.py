@@ -7,7 +7,6 @@ from operator import itemgetter
 from statsmodels.tsa.stattools import coint
 from hurst import compute_Hc as hurst_exponent
 
-
 from utils.utils import date_string, dataframe_interval, load_args,coint_spread,get_membership
 from os.path import exists
 import pickle
@@ -45,6 +44,7 @@ class PairFormation:
         self.__data = dataframe_interval(self.__start, self.__end, membership)
         self.__tickers = self.__data.keys()
 
+        
     def __distance_pairs(self, pair_number=5, **kwargs):
 
         # Initialize price series and tickers

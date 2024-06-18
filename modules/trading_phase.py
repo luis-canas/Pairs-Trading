@@ -5,15 +5,14 @@ import pandas as pd
 
 
 
-from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions,features_ts
+from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions,features_ts,plot_components,plot_components2,plot_forecasts
 
 
-from utils.genetic_algorithm import ga_weights
+from utils.portfolio_optimization import ga_weights,uniform_portfolio,clean_weights
 
 
-from utils.forecasting import calculate_metrics,light,arima,arima2,arima3,light3,arima4,arimahqic,arimarmse,arimabic,plot_forecasts
+from utils.forecasting import calculate_metrics,light3,arimabic
 
-from utils.portfolio_otimization import uniform_portfolio,clean_weights
 from statsmodels.tsa.stattools import coint,adfuller
 
 from os.path import isfile, exists
@@ -48,7 +47,7 @@ class TradingPhase:
         self.__tickers = data.keys()  # Data tickers
         self.__INIT_VALUE = PORTFOLIO_INIT
         self.__sector = sector
-        self.counter=0
+
         try:
             self.__data.index=self.__data.index.strftime('%Y-%m-%d')
         except:
@@ -66,21 +65,19 @@ class TradingPhase:
         self.__test_start = date_string(test_start)
         self.__test_end = date_string(test_end)
 
-    def performance(self,model):
+    def model_performance(self,model):
 
-        verbose=False
+
         if model == "FA":
             
-            error=pd.Series({
+            return pd.Series({
                     **calculate_metrics(self.forecast, self.y_true,self.y_fc_trend,self.y_true_trend)
                 })
+        else:
+            return 0
 
-            if verbose:
-                print(error)
 
     def __portfolio_data(self):
-
-        plot=True
 
         args=load_args("TRADING")
         
@@ -165,6 +162,10 @@ class TradingPhase:
             return [1]
         elif weights == "ga":
             return clean_weights(ga_weights(portfolio_returns,self.__spread_train,self.__sector,self.__window))
+    
+        elif weights == "u":
+            return uniform_portfolio(N)
+        
         else:
             return uniform_portfolio(N)
        
@@ -325,7 +326,7 @@ class TradingPhase:
         return n_trades, cash_in_hand, portfolio_value, days_open, profitable_unprofitable , profit_loss
     
     
-    def __threshold(self, spread_full, spread_test, spread_train,is_train,entry_l=2, close_l=0, entry_s=2, close_s=0,stop=2,window=21,plot=False, **kwargs):
+    def __threshold(self, spread_full, spread_test, spread_train,is_train,c1_test=0,c2_test=0,entry_l=-2, close_l=0, entry_s=2, close_s=0,stop=2,window=21,plot=False, **kwargs):
 
         if is_train:
             spread=np.array((spread_train-spread_train.mean())/spread_train.std())
@@ -336,6 +337,8 @@ class TradingPhase:
         else:
             # Norm spread
             spread, _, _, _ = compute_zscore(spread_full, spread_test,window)
+            # spread=c1_test-c2_test
+            # spread=np.array((spread - spread.mean()) / spread.std())
 
         # Get entry/exit points
         longs_entry = spread < entry_l
@@ -389,7 +392,8 @@ class TradingPhase:
         Y = pd.DataFrame([X['y'].shift(-i).values for i in range(1, horizon + 1)]).T
         offset = X.index.get_loc(spread_test.index[0])
         y_price=spread_test.values
-        y_true= Y[offset:]
+        y_true= pd.DataFrame(Y[offset:].values,index=spread_test.index)
+        y_true.columns = [spread_test.name]*(len(y_true.columns))
 
         if diff:
             y_true=y_true+y_price.reshape(-1,1)
@@ -416,18 +420,7 @@ class TradingPhase:
                 # Initialize fcts with the existing forecasts for the key, if any
                 fcts = forecasts_algo[date[key]] if date[key] in forecasts_algo and not compute_fc else np.empty((len(spread_test), 0))
 
-                if model[key] == 'light':
-                    # Compute only for the new columns
-                    for h in range(fcts.shape[1], Y.shape[1]):
-                        new_fct = light(X, Y.iloc[:, h], offset, h+1, batch, batch_error)
-                        # Append the new forecast to fcts
-                        fcts = np.hstack((fcts, new_fct.reshape(-1, 1)))
-                        forecasts_algo.update({date[key]: fcts})
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
 
-                    self.counter=self.counter+1
                 if model[key] == 'light3':
                     # Compute only for the new columns
                     for h in range(fcts.shape[1], Y.shape[1]):
@@ -435,81 +428,13 @@ class TradingPhase:
                         # Append the new forecast to fcts
                         fcts = np.hstack((fcts, new_fct.reshape(-1, 1)))
                         forecasts_algo.update({date[key]: fcts})
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    self.counter=self.counter+1
-                if model[key] == 'arima':
-
-                    new_fct = arima(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-                if model[key] == 'arima2':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arima2(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-
-                    self.counter=self.counter+1
-
-                if model[key] == 'naive':
-
                     array = spread_test.values
                     # Append the new forecast to fcts
                     fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-                    forecasts_algo.update({date[key]: fcts})
-                if model[key] == 'arima3':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
 
-                    new_fct = arima3(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
 
-                    self.counter=self.counter+1
-                if model[key] == 'arima4':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arima4(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-
-                    self.counter=self.counter+1
-                if model[key] == 'arimadiff':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arima4(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-
-                    self.counter=self.counter+1
-
-                if model[key] == 'arimarmse':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arimarmse(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-
-                    self.counter=self.counter+1
                 if model[key] == 'arimabic':
+                    self.counter = self.counter+1
                     # array = spread_test.values
                     # # Append the new forecast to fcts
                     # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
@@ -519,26 +444,16 @@ class TradingPhase:
                     fcts = new_fct
                     forecasts_algo.update({date[key]: fcts})
 
-                    self.counter=self.counter+1
-                if model[key] == 'arimahqic':
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
 
-                    new_fct = arimahqic(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
-                    forecasts_algo.update({date[key]: fcts})
-
-                    self.counter=self.counter+1
+                # Save the array to a pickle file
+                with open(file, 'wb') as f:
+                    pickle.dump(forecasts_algo, f)
             else:
                 fcts = forecasts_algo[date[key]]
 
             fc_list.append(fcts)
 
-        # Save the array to a pickle file
-        with open(file, 'wb') as f:
-            pickle.dump(forecasts_algo, f)
+
 
         # Stack arrays along a new axis (axis=0) to create a 3D array
         sliced_forecasts = np.array([forecast[:, :horizon] for forecast in fc_list])
@@ -599,11 +514,12 @@ class TradingPhase:
                 if delta>pct_u:
                     decision_array[today]=position=LONG_SPREAD
 
+
         decision_array.iloc[-1] = decision_array.iloc[0] =CLOSE_POSITION
         decision_array=decision_array.fillna(method='ffill')
 
-        if plot:
-            plot_forecasts(np.mean(y_true.values,axis=1),np.mean(fc,axis=1),horizon,model[0])
+        if plot and (spread_full.name=="LLY_PFE" or spread_full.name=="DE_UPS"):
+            plot_forecasts(y_true,sliced_forecasts,horizon,model)
 
 
         return decision_array
@@ -645,7 +561,7 @@ class TradingPhase:
         window=self.__window
         is_train=False
 
-
+        
 
         if verbose:
             print(weights)
@@ -694,8 +610,6 @@ class TradingPhase:
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable, profit_loss = self.__trade_spread(trade_array=trade_array,**args)
 
             
-            # plot_components_and_spread(c1_train.reset_index(drop=True),c2_train.reset_index(drop=True),c1_test,c2_test)
-            # 
 
             # Evaluate pair performance
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
@@ -703,8 +617,19 @@ class TradingPhase:
             if verbose:
                 print(spread_train.name,' :   ',pair_performance)
 
-            if plot:
-                plot_positions(spread_test,spread_full,trade_array,window,profit_loss,portfolio_value)
+            if plot and (spread_train.name == 'CL_PEP' or spread_train.name == 'COP_VLO'):
+                plot_positions(spread_test,spread_full,trade_array,window,profit_loss,portfolio_value,c1_test,c2_test)
+                plot_components(c1_train,c2_train)
+                # plot_components2(c1_test,c2_test)
+                # import matplotlib.pyplot as plt
+                # indices = np.arange(len(portfolio_value))
+                # plt.figure(figsize=(10, 6))
+                # plt.plot(indices, portfolio_value, color='blue', marker='o', linestyle='-')
+                # plt.title('Returns Data')
+                # plt.xlabel('Time')
+                # plt.ylabel('Returns')
+                # plt.grid(True)
+                # plt.show()
 
             if coint(c1_full,c2_full)[1]<cointegration_value:
                 cointegrated+=1
@@ -740,6 +665,7 @@ class TradingPhase:
             "portfolio_value": list(aux_pt_value),
             "trading_start": self.__test_start,
             "trading_end": self.__test_end,
+            "weights": weights,
             "cash": list(aux_cash),
             "n_pairs": (profit+loss),
             "profit_pairs": profit,

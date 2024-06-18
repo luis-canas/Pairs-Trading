@@ -7,10 +7,12 @@ import statsmodels.api as sm
 import random
 from os import makedirs
 from os.path import isfile, exists
+from scipy.stats import skew,zscore, boxcox,kurtosis as kur
+from scipy.stats.mstats import winsorize
 import yfinance as yf
 import pickle
 import json
-from numba import njit
+
 import sys
 import subprocess
 file_screener = 'screeners/'
@@ -22,7 +24,7 @@ file_args="modules/args.json"
 LONG_SPREAD = 1
 SHORT_SPREAD = -1
 CLOSE_POSITION = 0
-
+NB_TRADING_DAYS = 252
 
 def save_pickle(item):
 
@@ -293,23 +295,28 @@ def change_args(model,parameter,newvalue):
         json.dump(data, f,indent=4)
 
 import seaborn as sns
-def plot_positions(spread_test, spread_full, positions, window, profit_loss,portfolio_value):
+def plot_positions(spread_test, spread_full, positions, window, profit_loss, portfolio_value,c1,c2):
     profit_loss = np.array(profit_loss)
     zspread = compute_zscore(spread_full, spread_test, window)[0]
     i = spread_test.index[0]
     offset = spread_full.index.get_loc(i)
 
     label_indices = np.linspace(0, len(zspread)-1, 10).astype(int)
-    fig, axs = plt.subplots(2, 1, sharex=True)  # Create two subplots sharing x axis
-    
+
+    fig, axs = plt.subplots(2, 1, sharex=True, figsize=(16, 8))
+
+    # s=c1-c2
+    # zspread = np.array((s - s.mean()) / s.std())
+    # Adjust subplot parameters to add space at the bottom
+    plt.subplots_adjust(bottom=0.2)
     sns.set_theme()
-    sns.set_style("dark")
+    sns.set_style("white")
     # Increase the size of the text elements
     sns.set_context("paper", font_scale=2)
 
     # Plot z-spread
     axs[0].plot(zspread, label='Normalized Spread')
-    axs[0].set_ylabel("Normalized Spread")
+    axs[0].set_ylabel("Value")
     axs[0].axhline(y=2, color='black', linestyle='--', label='Short Threshold')
     axs[0].axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
     axs[0].set_xlim(positions.index.min(), positions.index.max())
@@ -319,7 +326,16 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss,port
     axs[1].step(range(len(positions)), positions, label='Position', where='post')
     axs[1].set_xlabel("Date")
     axs[1].set_ylabel("Position")
+    axs[1].yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    # Set y-axis ticks to be indices of spread_test
+    spread_test_indices = spread_test.index
+    tick_indices = np.linspace(0, len(spread_test_indices) - 1, 12).astype(int)
 
+    # Exclude the first and last points
+    tick_indices = tick_indices[1:-1]
+    axs[1].set_xticks(tick_indices)
+    # Slice the last 3 characters of each string in spread_test_indices
+    axs[1].set_xticklabels([spread_test_indices[idx] for idx in tick_indices], rotation=30)
     # Apply grid to both subplots
     axs[0].grid(True)
     axs[1].grid(True)
@@ -351,26 +367,153 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss,port
     # Adjust legend size
     axs[0].legend(handles=axs[0].get_legend_handles_labels()[0], loc='upper left', prop={'size': 12})
     axs[1].legend(handles=legend_elements, loc='upper left', prop={'size': 12})
+    # Set aspect ratio of the axes
 
+    axs[0].set_aspect('auto')
+    axs[1].set_aspect('auto')
+    plt.tight_layout()
+    plt.savefig(c1.name+".png")
     plt.show()
 
-    # Plot position
-    # zspread_train=(spread_full[:offset]-spread_full[:offset].mean())/spread_full[:offset].std()
-    # axs[2].plot(np.concatenate((zspread_train,zspread)), label='Normalized Spread')
-    # axs[2].axvline(x=offset)
-    # axs[2].set_xlabel("Date")
-    # axs[2].axhline(y=2, color='black', linestyle='--', label='Short Threshold')
-    # axs[2].axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
-    # axs[2].set_ylabel("Spread")
-    # axs[2].set_xlim(0, len(np.concatenate((zspread_train,zspread)))-1)
-    # axs[2].legend()
+def plot_components(c1, c2):
+    # Separate the names
+    name1, name2 = c1.name.split("_")
+    plt.figure()
+    # Plot z-spread for c1
+    plt.plot(c1, label=name1)
+    
+    # Plot z-spread for c2
+    plt.plot(c2, label=name2)
+    
+    # Set x and y labels
+    plt.xlabel("Year")
+    plt.ylabel("Price ($)")
+    
+    # Extract years from index
+    years = sorted(set([date[:4] for date in c1.index]))
+    
+    # Add an additional label for the next year after the last index
+    last_index = len(c1.index) - 1
+    last_year = int(c1.index[last_index][:4])
+    next_year_label = str(last_year + 1)
+    years.append(next_year_label)
+    
+    # Calculate the number of points per year
+    points_per_year = 250
+    
+    # Set x-axis ticks and labels
+    tick_locations = [i * points_per_year for i in range(len(years))]
+    plt.xticks(tick_locations, years, rotation=45)
+    
+    # Set x-axis limit to cover the range from the first day to the last day of the data
+    plt.xlim(0, len(c1.index) - 1)
+    
+    # Add legend
+    plt.legend()
 
-    # plt.legend()
+    # Set plot theme and style
+    sns.set_theme()
+    sns.set_style("white")
+    
+    # Increase the size of the text elements
+    sns.set_context("paper", font_scale=2)
+    
+    # Show grid
+    plt.grid(True)
+    plt.tight_layout()
+
+    # Show plot
+    plt.show()
+
+
+def plot_components2(c1, c2):
 
 
 
+    fig, axs = plt.subplots(1, 1, sharex=True, figsize=(20, 10))
 
-@njit
+    s=c1-c2
+    zspread = np.array((s - s.mean()) / s.std())
+    # Adjust subplot parameters to add space at the bottom
+    plt.subplots_adjust(bottom=0.2)
+    sns.set_theme()
+    sns.set_style("dark")
+    # Increase the size of the text elements
+    sns.set_context("paper", font_scale=2)
+
+    # Plot z-spread
+    axs.plot(zspread)
+    axs.set_ylabel("Value")
+    axs.axhline(y=2, color='black', linestyle='--', label='Short Threshold')
+    axs.axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
+    axs.legend(loc='upper right')
+
+   
+    spread_test_indices = c1.index
+    tick_indices = np.linspace(0, len(spread_test_indices) - 1, 5).astype(int)
+    axs.set_xticks(tick_indices)
+    # Slice the last 3 characters of each string in spread_test_indices
+    axs.set_xticklabels([spread_test_indices[idx] for idx in tick_indices], rotation=45)
+    axs.set_xlabel("Date")
+
+    # Apply grid to both subplots
+    axs.grid(True)
+    # Set x-axis limit to cover the range from the first day to the last day of the data
+    axs.set_xlim(0, len(c1.index) - 1)
+    plt.tight_layout()
+    plt.show()
+
+def plot_forecasts(real, fc, horizon, model):
+
+    model=['ARIMA','LightGBM']
+    import seaborn as sns
+    import matplotlib.ticker as ticker
+
+    # Calculate the mean of the real values
+    y_true = np.mean(real.values, axis=1)
+
+    # Define the positions on the x-axis
+    index = range(0, len(y_true[:-horizon]))
+
+    plt.figure(figsize=(16, 8))
+    plt.plot(index, y_true[:-horizon], label='Real', color='blue')
+
+    # Define a list of colors for the forecast models
+    num_forecasts = len(fc)
+    forecast_colors = sns.color_palette("husl", num_forecasts)
+
+    for i, (forecast, mod) in enumerate(zip(fc, model)):
+        fc_mean = np.mean(forecast, axis=1)
+        plt.plot(index, fc_mean[:-horizon], label=mod, color=forecast_colors[i])
+
+    # Add labels, legend, and grid
+    plt.xlabel('Date')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.subplots_adjust(bottom=0.2)
+    plt.grid(True)
+
+    # Set plot theme and style
+    sns.set_theme()
+    sns.set_style("white")
+    sns.set_context("paper", font_scale=2)
+
+    # Set x-axis ticks and labels
+    real_indices = real.index
+    tick_indices = np.linspace(0, len(real) - 1, 12).astype(int)
+
+    # Exclude the first and last points
+    tick_indices = tick_indices[1:-1]
+    plt.xticks(tick_indices, [real_indices[idx] for idx in tick_indices], rotation=30)
+
+    # Set x-axis limit to cover the range from the first day to the last day of the data
+    plt.xlim(0, len(real.index) - 1-horizon)
+    plt.tight_layout()
+    plt.savefig(real.columns[0]+".png")
+    # Show the plot
+    plt.show()
+
+
 def max_accumulate(arr):
     max_val = arr[0]
     max_cumulative = np.empty_like(arr)
@@ -379,7 +522,7 @@ def max_accumulate(arr):
         max_cumulative[i] = max_val
     return max_cumulative
 
-@njit
+
 def max_drawdown(s):
 
     try:
@@ -395,7 +538,8 @@ def max_drawdown(s):
     return mdd, i, j
 
 
-def sharpe_ratio(cash,date):
+def annualized_stats(cash,date):
+
     rf = {
         1987: 5.775 / 100,
         1988: 6.6675 / 100,
@@ -438,32 +582,52 @@ def sharpe_ratio(cash,date):
 
     date_key = datetime.strptime(date, '%Y-%m-%d').year
 
-    # Compute daily returns
+    # Compute returns
     ret = pd.Series(np.diff(cash) / cash[:-1], index=pd.date_range(start=date, periods=len(cash)-1))
 
-    # Number of trading days in a year
-    n_days = 252
-
     # Resample returns to daily frequency
-    daily_index = ret.resample('D').last().dropna().index
+    daily_index = ret.resample('D').sum().dropna().index
     daily_ret = (ret + 1).resample('D').prod() - 1
 
     # Remove added days from resample
     daily_ret = daily_ret.loc[daily_index]
+    # Number of trading days in a year
+    n_days = NB_TRADING_DAYS
+
 
     # Calculate annualized return as the cumulative return of the last period
     annualized_ret = (np.cumprod(1 + ret) - 1)[-1]
-    if np.std(daily_ret) != 0:
+    annualized_vol = (np.std(daily_ret) * np.sqrt(n_days))
+
+    if annualized_vol != 0:
         try:
             risk_free_rate = rf[date_key]
-            sharpe_ratio = (annualized_ret - risk_free_rate) / (np.std(daily_ret) * np.sqrt(n_days))
+            sharpe_ratio = (annualized_ret - risk_free_rate) / annualized_vol
         except:
-            sharpe_ratio = annualized_ret / (np.std(daily_ret) * np.sqrt(n_days))
+            sharpe_ratio = annualized_ret / annualized_vol
     else:
         sharpe_ratio=0
-        
+    
+    mdd=max_drawdown(cash)[0]
+    kurtosis,skewness,median,mean,max,min=return_stats(daily_ret)
 
-    return sharpe_ratio
+    return daily_ret.values,sharpe_ratio,annualized_ret*100,mdd,annualized_vol,kurtosis,skewness,median,mean,max,min
+
+def return_stats(returns):
+
+    zs=zscore(returns)
+    bound=11
+    mask = (zs >= -bound) & (zs <= bound)
+    # Find the highest and lowest values
+
+    kurtosis=kur(returns[mask])
+    skewness=skew(returns[mask])
+ 
+
+
+
+    return kurtosis,skewness,np.median(returns) * 100, np.mean(returns) * 100 , np.max(returns) * 100 , np.min(returns)* 100
+
 
 
 
@@ -919,6 +1083,7 @@ def default_args():
             "cv": 0.7,
             "mt": 0.1,
             "callback": 100,
+            "seed": 8,
             "percentage": 0.1
         },
         "TH": {
@@ -932,9 +1097,9 @@ def default_args():
             "batch": 1,
             "batch_error": 25,
             "model": [
-                "light"
+                "light3"
             ],
-            "horizon": 5
+            "horizon": 1
         },
         "TRADING": {
             "commission": 0.05,
@@ -944,7 +1109,6 @@ def default_args():
             "weights": "ga"
         }
     }
-
     for alg, arg_dict in default.items():
         for arg, value in arg_dict.items():
             change_args(alg, arg, value)

@@ -2,36 +2,25 @@
 
 import matplotlib.pyplot as plt
 import seaborn as sns
-from utils.utils import compute_zscore
-from utils.portfolio_otimization import historical_returns
-import matplotlib.ticker as ticker
+
 import pandas as pd
 
 from statsmodels.tsa.arima.model import ARIMA
 
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.linear_model import LinearRegression
+
 from sklearn.model_selection import GridSearchCV,train_test_split
 
 import numpy as np
-import tensorflow as tf
-import math
+
 import itertools
 
-import statsmodels.api as sm
+
 from sklearn.metrics import mean_squared_error,confusion_matrix
 
 
-NB_TRADING_DAYS = 252
-
-
-from sklearn.model_selection import GridSearchCV
-
 import lightgbm as lgb
-from utils.portfolio_otimization import historical_returns,riskportfolio
-from utils.utils import trade_spread
-import pickle
-from os.path import isfile, exists
+
 
 import warnings
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
@@ -41,117 +30,13 @@ warnings.simplefilter('ignore', ConvergenceWarning)
 # Ignore specific UserWarning
 warnings.filterwarnings("ignore", category=UserWarning)
 
-def LGBM(X,Y,offset,horizon,batch,batch_error):
 
-    X_train, y_train, =X[:offset-horizon].to_numpy(),Y[:offset-horizon].to_numpy()
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0,shuffle=True)
+NB_TRADING_DAYS = 252
 
-    # parameters = {
-    #   'n_estimators': [400],
-    #   'learning_rate': [0.001,0.01, 0.1],
-    #   'max_depth': [8],
-    #   'gamma': [0.005, 0.01, 0.02],
-    #   'random_state': [42]
-    # }
+LONG_SPREAD = 1
+SHORT_SPREAD = -1
+CLOSE_POSITION = 0
 
-    parameters = {
-      'n_estimators': [400,800],
-      'learning_rate': [0.001,0.01, 0.1],
-      'max_depth': [4,8,16,32],
-      'num_leaves': [2, 8, 32,256,1024],
-      "reg_alpha":[0.1], 
-      "reg_lambda":[1.0],
-      'random_state': [42]
-    }
-
-    eval_set = [(X_train, y_train), (X_val, y_val)]
-    model = lgb.LGBMRegressor(verbose=-1,reg_alpha=0.1, reg_lambda=1.0,early_stopping_rounds=10)
-    clf = GridSearchCV(model, parameters)
-
-    clf.fit(X_train, y_train, eval_set=eval_set)
-
-
-    model = lgb.LGBMRegressor(**clf.best_params_, verbose=-1)
-    # if True:
-    #     plot_val_loss(X_train,y_train,eval_set,clf.best_params_)
-    forecast=[]
-    for i in range(offset, len(X), batch):
-        # Predict on current batch
-        end = min(i + batch, len(X))
-        end_train = i-horizon+1
-        X_train, X_test, y_train, y_test=X[i-(offset):end_train].to_numpy(),X[i:end].to_numpy(),Y[i-(offset):end_train].to_numpy(),Y[i:end].to_numpy()
-
-        # split the data into training, validation, and test sets
-        # X_val,  X_train,y_val ,  y_train= train_test_split(X_train, y_train, train_size=0.2, random_state=0,shuffle=True)
-
-        # eval_set = [(X_train, y_train), (X_val, y_val)]
-
-        model.fit(X_train, y_train)
-
-        forecast.extend(model.predict(X_test))
-        
-    forecast=np.array(forecast).reshape(-1, 1)
-
-
-    N=batch_error
-
-    errors = np.empty(forecast.shape)
-
-    errors[:N]=clf.best_score_
-    y_test=Y[offset:].to_numpy()
-    # calculate RMSE for each batch of N values
-    for i in range(N, len(forecast), N):
-        rmse = np.sqrt(np.mean((forecast[i:i+N] - y_test[i:i+N]) ** 2))
-        errors[i:i+N]=rmse
-    df = pd.DataFrame(errors)
-    df.fillna(method='ffill', inplace=True)
-    errors = df.to_numpy()
-    return forecast
-
-def light(X,Y,offset,horizon,batch,batch_error):
-
-    X_train, y_train, =X[:offset-horizon].to_numpy(),Y[:offset-horizon].to_numpy()
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
-
-    parameters = {
-      'verbose': [-1],
-      'n_estimators': [2000],
-      'learning_rate': [0.001,0.01, 0.1],
-      'num_leaves': [8, 32,128],
-      "reg_alpha":[0, 1e-1, 1 ], 
-      "reg_lambda":[0, 1e-1, 1],
-      'random_state': [42]
-    }
-
-    eval_set = [(X_train, y_train), (X_val, y_val)]
-    model = lgb.LGBMRegressor()
-    clf = GridSearchCV(model, parameters)
-
-    clf.fit(X_train, y_train, eval_set=eval_set,callbacks=[lgb.early_stopping(stopping_rounds=20,verbose=False)])
-
-
-    model = lgb.LGBMRegressor(**clf.best_params_)
-    # if True:
-    #     plot_val_loss(X_train,y_train,eval_set,clf.best_params_)
-    forecast=[]
-    for i in range(offset, len(X), batch):
-        # Predict on current batch
-        end = min(i + batch, len(X))
-        end_train = i-horizon+1
-        X_train, X_test, y_train, y_test=X[i-(offset):end_train].to_numpy(),X[i:end].to_numpy(),Y[i-(offset):end_train].to_numpy(),Y[i:end].to_numpy()
-
-        # split the data into training, validation, and test sets
-        X_val,  X_train,y_val ,  y_train= train_test_split(X_train, y_train, train_size=0.2, random_state=0)
-
-        eval_set = [(X_train, y_train), (X_val, y_val)]
-
-        model.fit(X_train, y_train,eval_set=eval_set,callbacks=[lgb.early_stopping(stopping_rounds=20,verbose=False)])
-
-        forecast.extend(model.predict(X_test))
-        
-    forecast=np.array(forecast).reshape(-1, 1)
-
-    return forecast
 
 def light3(X,Y,offset,horizon,batch,batch_error):
 
@@ -200,239 +85,12 @@ def light3(X,Y,offset,horizon,batch,batch_error):
 
     return forecast
 
-def arima_ma(X,Y,offset,horizon,batch,batch_error):
-
-    X_train, y_train, =X['y'][:offset-horizon].to_numpy(),Y[:offset-horizon].to_numpy()
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0,shuffle=False)
-
-    p_values = range(0,6)
-    d_values = range(0, 3)
-    q_values = range(0, 2)
-    best_score=np.inf
-    fc=np.empty(shape=(len(X_val),1))
-    for p in p_values:
-        for d in d_values:
-            for q in q_values:
-                order = (p,d,q)
-                
-                for i in range(len(X_val)):
-                    model=ARIMA(endog=X_train,order=order).fit()
-                    fc[i]=np.mean(model.forecast(horizon))
-                    
-
-                rsme=np.sqrt(mean_squared_error(y_val,fc))
-                if rsme < best_score:
-                    best_score, best_cfg = rsme, order
-
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    for i in range(offset, len(X), batch):
-
-        end_train = i-horizon
-        X_train, y_train=X['y'][i-offset:end_train].to_numpy(),Y[i-offset:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_cfg).fit()
-
-        forecast.extend([np.mean(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    forecast = forecast.reshape(-1, 1)
-
-    N=batch_error
-
-    errors = np.empty(forecast.shape)
-
-    errors[:N]=best_score
-
-    y_test=Y[offset:].to_numpy()
-    # calculate RMSE for each batch of N values
-    for i in range(N, len(forecast), N):
-        rmse = np.sqrt(np.mean((forecast[i:i+N] - y_test[i:i+N]) ** 2))
-        errors[i:i+N]=rmse
-
-    df = pd.DataFrame(errors)
-    df.fillna(method='ffill', inplace=True)
-    errors = df.to_numpy()
-
-    return forecast,errors
 
 
-def arima(X,Y,offset,horizon,batch,batch_error):
-
-    
-    X_train, y_train, =X['y'][:offset+1].to_numpy(),Y[:offset+1].to_numpy()
 
 
-    # Define the p, d and q parameters
-    p = range(0,10)
-    d = range(0, 3)
-    q = range(0, 10)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
-
-    # Initialize the best parameters and the best AIC
-    best_aic = np.inf
-    best_pdq = None
-
-    # Grid search
-    for param in pdq:
-        try:
-            model = ARIMA(X_train, order=param)
-            model_fit = model.fit()
-            
-            # If the current run of AIC is better than the best one so far, overwrite the best AIC and best pdq
-            if model_fit.aic < best_aic:
-                best_aic = model_fit.aic
-                best_pdq = param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-offset:end_train].to_numpy(),Y[i-offset:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    # forecast = forecast.reshape(-1, 1)
-
-    # N=batch_error
-
-    # errors = np.empty(forecast.shape)
-
-    # errors[:N]=best_score
-
-    # y_test=Y[offset:].to_numpy()
-    # calculate RMSE for each batch of N values
-    # for i in range(N, len(forecast), N):
-    #     rmse = np.sqrt(np.mean((forecast[i:i+N] - y_test[i:i+N]) ** 2))
-    #     errors[i:i+N]=rmse
-
-    # df = pd.DataFrame(errors)
-    # df.fillna(method='ffill', inplace=True)
-    # errors = df.to_numpy()
-
-    return forecast
-
-def arima2(X,Y,offset,horizon,batch,batch_error):
-
-    
-    X_train, y_train, =X['y'][:offset+1].to_numpy(),Y[:offset+1].to_numpy()
 
 
-    # Define the p, d and q parameters
-    p = range(0,6)
-    d = range(0, 3)
-    q = range(0, 6)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
-
-    # Initialize the best parameters and the best AIC
-    best_aic = np.inf
-    best_pdq = None
-
-    # Grid search
-    for param in pdq:
-        try:
-            model = ARIMA(X_train, order=param)
-            model_fit = model.fit()
-            
-            # If the current run of AIC is better than the best one so far, overwrite the best AIC and best pdq
-            if model_fit.aic < best_aic:
-                best_aic = model_fit.aic
-                best_pdq = param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-offset:end_train].to_numpy(),Y[i-offset:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    # forecast = forecast.reshape(-1, 1)
-
-    # N=batch_error
-
-    # errors = np.empty(forecast.shape)
-
-    # errors[:N]=best_score
-
-    # y_test=Y[offset:].to_numpy()
-    # calculate RMSE for each batch of N values
-    # for i in range(N, len(forecast), N):
-    #     rmse = np.sqrt(np.mean((forecast[i:i+N] - y_test[i:i+N]) ** 2))
-    #     errors[i:i+N]=rmse
-
-    # df = pd.DataFrame(errors)
-    # df.fillna(method='ffill', inplace=True)
-    # errors = df.to_numpy()
-
-    return forecast
-
-def arima3(X,Y,offset,horizon,batch,batch_error):
-
-    
-    X_train, y_train, =X['y'][:offset+1].to_numpy(),Y[:offset+1].to_numpy()
-
-
-    # Define the p, d and q parameters
-    p = range(0,6)
-    d = range(0, 3)
-    q = range(0, 6)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
-
-    # Initialize the best parameters and the best AIC
-    best_aic = np.inf
-    best_pdq = None
-
-    # Grid search
-    for param in pdq:
-        try:
-            model = ARIMA(X_train, order=param)
-            model_fit = model.fit()
-            
-            # If the current run of AIC is better than the best one so far, overwrite the best AIC and best pdq
-            if model_fit.aic < best_aic:
-                best_aic = model_fit.aic
-                best_pdq = param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    length=len(X)-offset
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-length:end_train].to_numpy(),Y[i-length:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    return forecast
 
 
 def arimabic(X,Y,offset,horizon,batch,batch_error):
@@ -482,178 +140,9 @@ def arimabic(X,Y,offset,horizon,batch,batch_error):
     return forecast
 
 
-def arimahqic(X,Y,offset,horizon,batch,batch_error):
-
-    
-    X_train, y_train, =X['y'][:offset+1].to_numpy(),Y[:offset+1].to_numpy()
 
 
-    # Define the p, d and q parameters
-    p = range(0,6)
-    d = range(0, 3)
-    q = range(0, 6)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
 
-    # Initialize the best parameters and the best information criterion (AIC, BIC, HQIC)
-    best_criterion_value = np.inf
-    best_pdq = None
-
-    # Grid search
-    for param in pdq:
-        try:
-            # Fit ARIMA model
-            model = ARIMA(X_train, order=param)
-            model_fit = model.fit()
-            
-            # Choose the desired information criterion
-            # For example, to use AIC:
-            # criterion_value = model_fit.aic
-            # For BIC:
-            # criterion_value = model_fit.bic
-            # For HQIC:
-            criterion_value = model_fit.hqic
-
-            # Update the best parameters if the current criterion value is better
-            if criterion_value < best_criterion_value:
-                best_criterion_value = criterion_value
-                best_pdq = param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    length=len(X)-offset
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-length:end_train].to_numpy(),Y[i-length:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    return forecast
-
-def arimarmse(X,Y,offset,horizon,batch,batch_error):
-
-    
-    X_t, y_t, =X['y'][:offset+1].to_numpy(),Y[0][:offset+1].to_numpy()
-
-    X_train, X_val, y_train, y_val = train_test_split(X_t, y_t, test_size=0.1, random_state=0,shuffle=False)
-
-    best_score=np.inf
-    val_size=len(X_val)
-
-    # Define the p, d and q parameters
-    p = range(0,6)
-    d = range(0, 3)
-    q = range(0, 6)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
-
-    # Initialize the best parameters and the best AIC
-    best_pdq = None
-
-    
-    # Grid search
-    for param in pdq:
-        try:
-
-            model=ARIMA(endog=X_train,order=param).fit()
-            fc=(model.forecast(val_size))
-                    
-
-            rsme=np.sqrt(mean_squared_error(y_val,fc))
-            if rsme < best_score:
-                best_score, best_pdq = rsme, param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    length=len(X)-offset
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-length:end_train].to_numpy(),Y[i-length:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    return forecast
-
-def arima4(X,Y,offset,horizon,batch,batch_error):
-
-    length=len(X)-offset
-    X_train, y_train, =X['y'][offset-length:offset+1].to_numpy(),Y[offset-length:offset+1].to_numpy()
-
-
-    # Define the p, d and q parameters
-    p = range(0,6)
-    d = range(0, 3)
-    q = range(0, 6)
-    # Generate all different combinations of p, d and q triplets
-    pdq = list(itertools.product(p, d, q))
-
-    # Initialize the best parameters and the best AIC
-    best_aic = np.inf
-    best_pdq = None
-
-    # Grid search
-    for param in pdq:
-        try:
-            model = ARIMA(X_train, order=param)
-            model_fit = model.fit()
-            
-            # If the current run of AIC is better than the best one so far, overwrite the best AIC and best pdq
-            if model_fit.aic < best_aic:
-                best_aic = model_fit.aic
-                best_pdq = param
-        except:
-            continue
-    batch=1
-    # best_cfg=(2,2,0)
-    forecast=[]
-    
-    for i in range(offset, len(X), batch):
-
-        end_train = i+1
-        X_train, y_train=X['y'][i-length:end_train].to_numpy(),Y[i-length:end_train].to_numpy(),
-        # X_train, y_train=X['y'][:end_train].to_numpy(),Y[:end_train].to_numpy(),
-
-        model=ARIMA(endog=X_train,order=best_pdq).fit()
-
-        forecast.extend([(model.forecast(horizon))])
-        
-    forecast=np.array(forecast)
-
-    # forecast = forecast.reshape(-1, 1)
-
-    # N=batch_error
-
-    # errors = np.empty(forecast.shape)
-
-    # errors[:N]=best_score
-
-    # y_test=Y[offset:].to_numpy()
-    # calculate RMSE for each batch of N values
-    # for i in range(N, len(forecast), N):
-    #     rmse = np.sqrt(np.mean((forecast[i:i+N] - y_test[i:i+N]) ** 2))
-    #     errors[i:i+N]=rmse
-
-    # df = pd.DataFrame(errors)
-    # df.fillna(method='ffill', inplace=True)
-    # errors = df.to_numpy()
-
-    return forecast
 
 # define a custom function to calculate the trend of a row
 def calculate_trend(row):
@@ -701,6 +190,40 @@ def calculate_metrics(y_hat,y,y_hat_trend,y_trend,train_test='test'):
 
 
 
+def historical_returns(spread_train,  entry_l=-1, close_l=0, entry_s=1, close_s=0,**kwargs):
+    # Norm spread
+    spread=((spread_train-spread_train.mean())/spread_train.std()).reset_index(drop=True)
+
+    # Get entry/exit points
+    longs_entry = spread < entry_l
+    longs_exit = spread > close_l
+    shorts_entry = spread > entry_s
+    shorts_exit = spread < close_s
+
+
+    # numerical_units long/short - equivalent to the long/short_entry arrays but with integers instead of booleans
+    num_units_long = pd.Series([np.nan for i in range(len(spread))])
+    num_units_short = pd.Series([np.nan for i in range(len(spread))])
+
+    num_units_long[longs_entry] = LONG_SPREAD
+    num_units_long[longs_exit] = CLOSE_POSITION
+    num_units_short[shorts_entry] = SHORT_SPREAD
+    num_units_short[shorts_exit] = CLOSE_POSITION
+
+    # a bit redundant, the stabilizing threshold ensures this
+    num_units_long[0] = CLOSE_POSITION
+    num_units_short[0] = CLOSE_POSITION
+
+    # completes the array by propagating the last valid observation
+    num_units_long = num_units_long.fillna(method='ffill')
+    num_units_short = num_units_short.fillna(method='ffill')
+
+    # concatenation of both arrays in a single decision array
+    num_units = num_units_long + num_units_short
+    trade_array = pd.Series(data=num_units.values)
+    trade_array.iloc[-1] = CLOSE_POSITION
+
+    return trade_array
 
 def plot_components_and_spread(asset_A_prices, asset_B_prices,c1,c2):
     spread = c1-c2
@@ -801,71 +324,8 @@ def plot_components_and_spread(asset_A_prices, asset_B_prices,c1,c2):
 
     plt.show()
 
-def plot_forecasts(real,fc,horizon,model):
-    import seaborn as sns
-    import matplotlib.ticker as ticker
-    # # Define your custom x-axis labels
-    # months = ['Mar', 'Jun',  'Sep', 'Oct', 'Nov', 'Dec','Jan']
-    # x_labels = {int((i+1)*len(real)/3): months[i] for i in range(0, 4)}
-
-  # Define the positions on the x-axis
-    index = range(0, len(real[:-horizon]))
-    plt.figure(figsize=(12, 6))
-    plt.plot(index,real[:-horizon], label='Real', color='blue')
-    plt.plot(index,fc[:-horizon], label=model, color='green')
 
 
-    # Add labels, legend, and grid
-    plt.xlabel('Day')
-    plt.ylabel('Value')
-    # plt.title('Price with Moving Averages')
-
-    plt.legend()
-    plt.subplots_adjust(bottom=0.2)
-    # Add a grid
-    plt.grid(True)
-
-    sns.set_theme()
-    sns.set_style("dark")
-    sns.set_context("paper", font_scale =2)
-
-    # def format_func(value, tick_number):
-    #     return x_labels.get(value, '')
-    # tick_positions = list(x_labels.keys())
-    # plt.xticks(tick_positions, x_labels.values())
-
-    # Use FuncFormatter to apply the custom function
-    # plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(format_func))
-
-    plt.xlim(min(index), max(index))
-    plt.title('Predictions of forecasting model')
-    # Show the plot
-    plt.show()
-
-
-
-def feature_analysis(features,target,offset):
-
-    X_train=features
-    y_train=target
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0,shuffle=False)
-    parameters = {
-      'n_estimators': [400],
-      'learning_rate': [0.001,0.01, 0.1],
-      'max_depth': [8],
-      'num_leaves': [2, 8, 32,256,1024],
-      "reg_alpha":[0.1], 
-      "reg_lambda":[1.0],
-      'random_state': [42]
-    }
-
-    eval_set = [(X_train, y_train), (X_val, y_val)]
-    model = lgb.LGBMRegressor(verbose=-1,reg_alpha=0.1, reg_lambda=1.0)
-
-    model.fit(X_train, y_train)
-
-    ax = lgb.plot_importance(model, max_num_features=40, figsize=(15,15))
-    plt.show()
 
 
 def plot_val_loss(X_train,y_train,eval_set,best_params):

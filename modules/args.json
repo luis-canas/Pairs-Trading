@@ -12,6 +12,7 @@
         "cv": 0.7,
         "mt": 0.1,
         "callback": 100,
+        "seed": 8,
         "percentage": 0.1
     },
     "TH": {
@@ -25,9 +26,9 @@
         "batch": 1,
         "batch_error": 25,
         "model": [
-            "light"
+            "light3"
         ],
-        "horizon": 5
+        "horizon": 4
     },
     "TRADING": {
         "commission": 0.05,

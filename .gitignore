@@ -2,6 +2,10 @@
 **/__pycache__/
 lightning_logs/
 catboost_logs/
+.gitignore
+**.png
+**.zip
+**.ipynb
+!Example.ipynb
 
-
-
+old/
