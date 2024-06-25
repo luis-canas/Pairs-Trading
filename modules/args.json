@@ -24,11 +24,10 @@
     },
     "FA": {
         "batch": 1,
-        "batch_error": 25,
         "model": [
             "light3"
         ],
-        "horizon": 1
+        "horizon": 4
     },
     "TRADING": {
         "commission": 0.05,

@@ -42,12 +42,13 @@ class TradingPhase:
 
     def __init__(self, data,sector):
 
-        self.__pairs = []  # List of pairs
-        self.__data = data  # Price series
-        self.__tickers = data.keys()  # Data tickers
-        self.__INIT_VALUE = PORTFOLIO_INIT
-        self.__sector = sector
+        self.__pairs = []  # list of pairs
+        self.__data = data  # price series
+        self.__tickers = data.keys()  # data tickers
+        self.__INIT_VALUE = PORTFOLIO_INIT #init portfolio value
+        self.__sector = sector #sector(s) selected
 
+        #if needed format index
         try:
             self.__data.index=self.__data.index.strftime('%Y-%m-%d')
         except:
@@ -67,7 +68,7 @@ class TradingPhase:
 
     def model_performance(self,model):
 
-
+        # add/select metrics for selected trading model here
         if model == "FA":
             
             return pd.Series({
@@ -79,12 +80,10 @@ class TradingPhase:
 
     def __portfolio_data(self):
 
+        #load arguments and init vars
         args=load_args("TRADING")
-        
         weights=args.get('weights')
-
         N=len(self.__pairs)
-
         self.__spread_train=pd.DataFrame()
         self.__spread_test=pd.DataFrame()
         self.__spread_full=pd.DataFrame()
@@ -101,7 +100,12 @@ class TradingPhase:
 
 
         for id,(component1, component2) in enumerate(self.__pairs):  # get components for each pair
-            # convert component1 and component2 to strings
+            print(id)
+            # Get one series for each component
+            # c1 = self.__data[component1].squeeze()
+            # c2 = self.__data[component2].squeeze()
+
+            # convert component1 and component2 to strings (changed for mult stocks per component)
             component1_str = '_'.join(component1)
             component2_str = '_'.join(component2)
             # Extract tickers in each component
@@ -125,7 +129,8 @@ class TradingPhase:
                 self.__train_start, self.__test_end, c1)
             c2_full = dataframe_interval(
                 self.__train_start, self.__test_end, c2)
-
+            if id ==208:
+                ss=1
             # Get beta coefficient and spread for train/test/full
             beta, spread_train,spread_test,spread_full = coint_spread(c1_train, c2_train,c1_test,c2_test,c1_full,c2_full)
 
@@ -145,19 +150,24 @@ class TradingPhase:
         self.__entry_close[0,:],self.__entry_close[1,:],self.__entry_close[2,:],self.__entry_close[3,:], self.__window= vars_th.get('entry_l'),vars_th.get('close_l'),vars_th.get('entry_s'),vars_th.get('close_s'),vars_th.get('window') 
  
         for id,(component1, component2) in enumerate(self.__pairs):  # get components for each pair
-            # convert component1 and component2 to strings
+
+            # convert component1 and component2
             component1_str = '_'.join(component1)
             component2_str = '_'.join(component2)
-            entry_l,close_l,entry_s,close_s=self.__entry_close[:,id]
             spread_train=self.__spread_train.iloc[:,[id]].squeeze()         
             c1_train=self.__c1_train.iloc[:,[id]].squeeze()         
             c2_train=self.__c2_train.iloc[:,[id]].squeeze()
-            
+
+            #get trading thresholds
+            entry_l,close_l,entry_s,close_s=self.__entry_close[:,id]
+
+            # apply threshold baseline model
             trade_array=self.__threshold(spread_full=spread_full,spread_test=spread_test,spread_train=spread_train,is_train=True,entry_l=entry_l,close_l=close_l,entry_s=entry_s,close_s=close_s,window=self.__window)
+            #obtain portfolio returns
             returns=pd.Series(self.__trade_spread(c1_test=c1_train, c2_test=c2_train, trade_array=trade_array, FIXED_VALUE=self.__INIT_VALUE/N,beta=beta,**args)[2],index=spread_train.index)
             portfolio_returns[f'{component1_str}_{component2_str}'] = returns
             
-
+        #select weight distribution
         if N<=1:
             return [1]
         elif weights == "ga":
@@ -165,7 +175,6 @@ class TradingPhase:
     
         elif weights == "u":
             return uniform_portfolio(N)
-        
         else:
             return uniform_portfolio(N)
        
@@ -193,32 +202,6 @@ class TradingPhase:
 
             else:  # reset counter
                 count = 0
-
-        return decision_array
-    
-    def __break_pairs(self, decision_array,spread_test,spread_full):
-
-        # Set the cointegration threshold
-        coint_threshold = 0.1
-        i = spread_test.index[0]
-        offset = spread_full.index.get_loc(i)
-        p_value=adfuller(spread_full)[1]
-        if p_value < coint_threshold:
-            return decision_array
-        # Iterate through the trading decision array
-        for day, decision in enumerate(decision_array):
-            if day==0:
-                continue
-
-             # Check if the current position is open position
-            if decision_array[day] != CLOSE_POSITION :
-                # Perform the cointegration test
-                p_value=adfuller(spread_full[:offset+day+1])[1]
-                # Check if the p-value is larger than the threshold
-                if p_value > coint_threshold:
-                    # Don't open the position and set CLOSE POS until the end of the array
-                    decision_array[day:] = CLOSE_POSITION
-                    break
 
         return decision_array
     
@@ -328,17 +311,14 @@ class TradingPhase:
     
     def __threshold(self, spread_full, spread_test, spread_train,is_train,c1_test=0,c2_test=0,entry_l=-2, close_l=0, entry_s=2, close_s=0,stop=2,window=21,plot=False, **kwargs):
 
-        if is_train:
+        if is_train: #compute spread for train
             spread=np.array((spread_train-spread_train.mean())/spread_train.std())
             spread_mean = spread_train.rolling(window=window).mean().to_numpy()
             spread_std = spread_train.rolling(window=window).std().to_numpy()
             spread=np.array((spread_train-spread_mean)/spread_std)
             spread[:window-1]=0
-        else:
-            # Norm spread
-            spread, _, _, _ = compute_zscore(spread_full, spread_test,window)
-            # spread=c1_test-c2_test
-            # spread=np.array((spread - spread.mean()) / spread.std())
+        else: #compute spread for test
+            spread, _, _, _ = compute_zscore(spread_full, spread_test,window) # Norm spread
 
         # Get entry/exit points
         longs_entry = spread < entry_l
@@ -380,23 +360,19 @@ class TradingPhase:
     
 
     def __forecasting_algorithm(self, spread_train, spread_full, spread_test, verbose=True, plot=True,
-                                horizon=1, batch=10,batch_error=10,model=['arima'],window=21,**kwargs):
+                                horizon=1, batch=10,model=['arima'],window=21,**kwargs):
         verbose=False
         plot=False
 
         norm,_,_,_=compute_zscore(spread_full,spread_test,window)
         
-        
-        diff=False
-        X = features_ts(spread_full,diff=diff).dropna()
+        X = features_ts(spread_full).dropna()
         Y = pd.DataFrame([X['y'].shift(-i).values for i in range(1, horizon + 1)]).T
         offset = X.index.get_loc(spread_test.index[0])
         y_price=spread_test.values
         y_true= pd.DataFrame(Y[offset:].values,index=spread_test.index)
         y_true.columns = [spread_test.name]*(len(y_true.columns))
 
-        if diff:
-            y_true=y_true+y_price.reshape(-1,1)
 
         compute_fc=False
         file='results/'+'forecasts.pkl'
@@ -415,6 +391,8 @@ class TradingPhase:
             forecasts_algo={}
 
         for key in range(len(date)):
+
+            #compute if pair/model combination does not exist, has no value or lower time steps than expected
             if compute_fc or (date[key] not in forecasts_algo or forecasts_algo[date[key]] is None or forecasts_algo[date[key]].shape[1] < horizon):
 
                 # Initialize fcts with the existing forecasts for the key, if any
@@ -424,24 +402,13 @@ class TradingPhase:
                 if model[key] == 'light3':
                     # Compute only for the new columns
                     for h in range(fcts.shape[1], Y.shape[1]):
-                        new_fct = light3(X, Y.iloc[:, h], offset, h+1, batch, batch_error)
-                        # Append the new forecast to fcts
-                        fcts = np.hstack((fcts, new_fct.reshape(-1, 1)))
+                        new_fct = light3(X, Y.iloc[:, h], offset, h+1, batch)
+                        fcts = np.hstack((fcts, new_fct.reshape(-1, 1)))# Append the new forecast to fcts
                         forecasts_algo.update({date[key]: fcts})
-                    array = spread_test.values
-                    # Append the new forecast to fcts
-                    fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
 
                 if model[key] == 'arimabic':
-                    self.counter = self.counter+1
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arimabic(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
+                    new_fct = arimabic(X, Y, offset, horizon, batch)
+                    fcts = new_fct # Append the new forecast to fcts
                     forecasts_algo.update({date[key]: fcts})
 
 
@@ -461,11 +428,9 @@ class TradingPhase:
         # Compute the mean along the first axis (axis=0)
         fc = np.mean(sliced_forecasts, axis=0)
 
-        if diff:
-            fc=fc+y_price.reshape(-1,1)
+        # compute error variables and metrics
         y_true_trend = np.where(np.mean(y_true.values,axis=1)>y_price, 1, -1)
         y_fc_trend = np.where(np.mean(fc,axis=1)>y_price, 1, -1)
-
         try:     
             self.forecast=np.append(self.forecast,fc[:-horizon],axis=0)
             self.y_true=np.append(self.y_true,y_true[:-horizon],axis=0)
@@ -474,7 +439,6 @@ class TradingPhase:
         except:
             self.forecast,self.y_true=fc[:-horizon], y_true[:-horizon],
             self.y_fc_trend,self.y_true_trend=y_fc_trend[:-horizon],y_true_trend[:-horizon]
-
         error=pd.Series({
                     **calculate_metrics(fc[:-horizon], y_true[:-horizon],y_fc_trend[:-horizon],y_true_trend[:-horizon])
                 })
@@ -484,41 +448,42 @@ class TradingPhase:
 
         decision_array = pd.Series([np.nan for i in range(len(spread_test))])
 
-
+        #get trading thresholds
         args=load_args("TH")
         entry_l = args.get('entry_l')  
         entry_s = args.get('entry_s')  
         close_l = args.get('close_l')  
         close_s = args.get('close_s')  
 
+        #forecasting variables
         position = CLOSE_POSITION
         percentage_l=0.5
         percentage_s=0.5
         alpha_l=entry_l-percentage_s*entry_l
         alpha_s=entry_s-(percentage_l*(entry_s))
 
-        pct_u=0
-        pct_d=0
-
-        for today in range(1,len(spread_test)-1):
+        for today in range(1,len(spread_test)-1): #for each trading day
         
-            delta=(np.mean(fc[today])-y_price[today])/np.abs(y_price[today])
+            delta=(np.mean(fc[today])-y_price[today])/np.abs(y_price[today]) #expected spread change
 
+            # liquidate position in mean cross
             if (position == LONG_SPREAD and norm[today]>close_l)or (position == SHORT_SPREAD and norm[today]<close_s):
                 decision_array[today]=position=CLOSE_POSITION
+            
+            #short position
             if norm[today]>alpha_s:
-                if delta<pct_d:
+                if delta<0:
                     decision_array[today]=position=SHORT_SPREAD
-
+            #long position
             elif norm[today]<alpha_l:
-                if delta>pct_u:
+                if delta>0:
                     decision_array[today]=position=LONG_SPREAD
 
 
         decision_array.iloc[-1] = decision_array.iloc[0] =CLOSE_POSITION
         decision_array=decision_array.fillna(method='ffill')
 
-        if plot and (spread_full.name=="LLY_PFE" or spread_full.name=="DE_UPS"):
+        if plot:
             plot_forecasts(y_true,sliced_forecasts,horizon,model)
 
 
@@ -546,6 +511,7 @@ class TradingPhase:
         if n_pairs==0:
             aux_pt_value=aux_cash=np.full(len(dataframe_interval(self.__test_start, self.__test_end, self.__data)),self.__INIT_VALUE)
 
+        # init variables
         cointegrated = 0
         n_non_convergent_pairs = 0
         profit = 0
@@ -553,12 +519,15 @@ class TradingPhase:
         profit_loss_trade = np.zeros(2)
         total_trades = 0
 
+        #init portfolio data and return weights
         weights=self.__portfolio_data()
 
-        # plot_portfolio(weights,self.__pairs)
+        # get coint value
         cointegration_value=load_args("COINT")["pvalue_threshold"]
 
+        #sliding window for normalization
         window=self.__window
+        #in test phase
         is_train=False
 
         
@@ -569,9 +538,10 @@ class TradingPhase:
 
         for pair_id in range(n_pairs):  # get components for each pair
 
-            if weights[pair_id]==0:
+            if weights[pair_id]==0: #pair has no weight continue
                 continue
 
+            #load variables of current pair
             entry_l,close_l,entry_s,close_s=self.__entry_close[:,pair_id] 
             spread_train=self.__spread_train.iloc[:,[pair_id]].squeeze()
             spread_test=self.__spread_test.iloc[:,[pair_id]].squeeze()
@@ -585,7 +555,7 @@ class TradingPhase:
             FIXED_VALUE = self.__INIT_VALUE*weights[pair_id]
             beta=self.__beta[pair_id]
 
-            # Create a dictionary of the current pair's variables
+            # Create a dictionary
             vars_pair = {k: v for k, v in locals().items() if k in 
                         ['c1_train', 'c2_train', 'c1_test', 'c2_test', 'c1_full', 'c2_full',
                         'spread_train', 'spread_full', 'spread_test', 
@@ -601,38 +571,19 @@ class TradingPhase:
 
             # Force close non convergent positions
             # trade_array = self.__force_close(trade_array)
-
-            # Force close non convergent positions
-            # trade_array = self.__break_pairs(trade_array,spread_test,spread_full)
-
             
             # # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable, profit_loss = self.__trade_spread(trade_array=trade_array,**args)
-
-            
 
             # Evaluate pair performance
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
 
             if verbose:
-                print(spread_train.name,' :   ',pair_performance)
+                print(spread_train.name,':',round(pair_performance, 2))
 
-            if plot and (spread_train.name == 'CL_PEP' or spread_train.name == 'COP_VLO'):
+            if plot:
                 plot_positions(spread_test,spread_full,trade_array,window,profit_loss,portfolio_value,c1_test,c2_test)
                 plot_components(c1_train,c2_train)
-                # plot_components2(c1_test,c2_test)
-                # import matplotlib.pyplot as plt
-                # indices = np.arange(len(portfolio_value))
-                # plt.figure(figsize=(10, 6))
-                # plt.plot(indices, portfolio_value, color='blue', marker='o', linestyle='-')
-                # plt.title('Returns Data')
-                # plt.xlabel('Time')
-                # plt.ylabel('Returns')
-                # plt.grid(True)
-                # plt.show()
-
-            if coint(c1_full,c2_full)[1]<cointegration_value:
-                cointegrated+=1
 
             if pair_performance > 100:
                 profit += 1
@@ -672,7 +623,6 @@ class TradingPhase:
             "loss_pairs": loss,
             "profit_trades": int(profit_loss_trade[0]),
             "loss_trades": int(profit_loss_trade[1]),
-            "cointegrated_pairs": int(cointegrated),
             "non_convergent_pairs": n_non_convergent_pairs,
         }
 

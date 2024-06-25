@@ -12,19 +12,29 @@ from scipy.stats.mstats import winsorize
 import yfinance as yf
 import pickle
 import json
-
+import seaborn as sns
+import matplotlib.ticker as ticker
 import sys
 import subprocess
 file_screener = 'screeners/'
 file_input = 'results/'
 file_output = 'results/'
 file_args="modules/args.json"
+file_images="results/img/"
 
 
 LONG_SPREAD = 1
 SHORT_SPREAD = -1
 CLOSE_POSITION = 0
 NB_TRADING_DAYS = 252
+
+# import warnings
+# from statsmodels.tools.sm_exceptions import ConvergenceWarning
+
+# # Ignore ConvergenceWarning
+# warnings.simplefilter('ignore', ConvergenceWarning)
+# # Ignore specific UserWarning
+# warnings.filterwarnings("ignore", category=UserWarning)
 
 def save_pickle(item):
 
@@ -82,45 +92,23 @@ def date_change(date, timeframe):
     return newdate
 
 
-
-def coint_spread2(c1_train, c2_train,c1_test=1, c2_test=1,c1_full=1, c2_full=1):
-    S1 = (np.asarray(c1_train))
-    S2 = (np.asarray(c2_train))
-    S2_c = sm.add_constant(S2)
-
-    results = sm.OLS(S1, S2_c).fit()
-
-    b = results.params[1]
-
-    spread_train = (c1_train) - b*(c2_train)
-    spread_full = (c1_full)-b*(c2_full)
-    spread_test = (c1_test)-b*(c2_test)
-    return b, spread_train,spread_test,spread_full
-
 def coint_spread(c1_train, c2_train,c1_test=1, c2_test=1,c1_full=1, c2_full=1):
-    S1 = np.log(np.asarray(c1_train))
-    S2 = np.log(np.asarray(c2_train))
+    S1 = np.log(c1_train)
+    S2 = np.log(c2_train)
     S2_c = sm.add_constant(S2)
 
     results = sm.OLS(S1, S2_c).fit()
 
-    b = results.params[1]
+    b = results.params.iloc[1]
 
-    spread_train = np.log(c1_train) - b*np.log(c2_train)
+    spread_train = np.log(c1_train)-b*np.log(c2_train)
     spread_full = np.log(c1_full)-b*np.log(c2_full)
     spread_test = np.log(c1_test)-b*np.log(c2_test)
     return b, spread_train,spread_test,spread_full
 
-from statsmodels.tsa.vector_ar.vecm import coint_johansen,VECM
-
-
-import math
 
 def compute_zscore(full_spread, test_spread,interval):
 
-    zs_interval= (len(full_spread)-len(test_spread))//1
-    # zs_interval= (len(test_spread))//1
-    # zs_interval=math.ceil(calculate_half_life(full_spread[:(len(full_spread)-len(test_spread))]))*2
     zs_interval=interval
 
     i = test_spread.index[0]
@@ -145,35 +133,9 @@ def compute_zscore(full_spread, test_spread,interval):
 
     return norm_spread, mean, std, t_spread
 
-def compute_zscore2(full_spread, test_spread):
-
-    i = test_spread.index[0]
-    offset = full_spread.index.get_loc(i)
-
-    norm_spread = np.zeros(len(test_spread))
-
-    mean = np.zeros(len(test_spread))
-    std = np.zeros(len(test_spread))
-    t_spread = np.zeros(len(test_spread))
-
-    for day, daily_value in enumerate(test_spread):
-        spread_to_consider = full_spread[(day+1): (day+1) + offset]
-
-        norm_spread[day] = (
-            daily_value - spread_to_consider.mean()) / spread_to_consider.std()
-
-        mean[day] = spread_to_consider.mean()
-        std[day] = spread_to_consider.std()
-        t_spread[day] = daily_value
-
-    return norm_spread, mean, std, t_spread
 
 
 def price_of_entire_component(series, component):
-
-    if not any(component):
-        # just to return something, this subject will be discarded for not having enough stocks in the component
-        return series.iloc[:, random.randint(0, 10)]
 
     combined_series = series.iloc[:, component].sum(axis=1)
 
@@ -296,6 +258,8 @@ def change_args(model,parameter,newvalue):
 
 import seaborn as sns
 def plot_positions(spread_test, spread_full, positions, window, profit_loss, portfolio_value,c1,c2):
+
+
     profit_loss = np.array(profit_loss)
     zspread = compute_zscore(spread_full, spread_test, window)[0]
     i = spread_test.index[0]
@@ -312,7 +276,7 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss, por
     sns.set_theme()
     sns.set_style("white")
     # Increase the size of the text elements
-    sns.set_context("paper", font_scale=2)
+    sns.set_context("paper", font_scale=3)
 
     # Plot z-spread
     axs[0].plot(zspread, label='Normalized Spread')
@@ -320,12 +284,14 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss, por
     axs[0].axhline(y=2, color='black', linestyle='--', label='Short Threshold')
     axs[0].axhline(y=-2, color='black', linestyle=':', label='Long Threshold')
     axs[0].set_xlim(positions.index.min(), positions.index.max())
-    axs[0].legend()
+    axs[0].legend(fontsize=12)
 
     # Plot position
     axs[1].step(range(len(positions)), positions, label='Position', where='post')
     axs[1].set_xlabel("Date")
     axs[1].set_ylabel("Position")
+        # Annotate the percentage changes
+    
     axs[1].yaxis.set_major_locator(plt.MaxNLocator(integer=True))
     # Set y-axis ticks to be indices of spread_test
     spread_test_indices = spread_test.index
@@ -365,8 +331,8 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss, por
     axs[1].legend(handles=legend_elements, loc='upper left')
 
     # Adjust legend size
-    axs[0].legend(handles=axs[0].get_legend_handles_labels()[0], loc='upper left', prop={'size': 12})
-    axs[1].legend(handles=legend_elements, loc='upper left', prop={'size': 12})
+    axs[0].legend(handles=axs[0].get_legend_handles_labels()[0], loc='upper left', prop={'size': 20})
+    axs[1].legend(handles=legend_elements, loc='lower left', prop={'size': 20})
     # Set aspect ratio of the axes
 
     axs[0].set_aspect('auto')
@@ -465,9 +431,7 @@ def plot_components2(c1, c2):
 
 def plot_forecasts(real, fc, horizon, model):
 
-    model=['ARIMA','LightGBM']
-    import seaborn as sns
-    import matplotlib.ticker as ticker
+
 
     # Calculate the mean of the real values
     y_true = np.mean(real.values, axis=1)
@@ -631,12 +595,9 @@ def return_stats(returns):
 
 
 
-def features_ts(arr,name='y',diff=False):
+def features_ts(arr,name='y'):
 
     df = pd.DataFrame(arr.values, columns=[name],index=arr.index)
-
-    if diff:
-        df[name]=df[name].diff()
 
     
     delta = df[name].diff()

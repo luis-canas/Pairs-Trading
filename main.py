@@ -67,12 +67,12 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--index', type=str, default='s&p500')
     parser.add_argument('--sector', type=str, default='All')
-    parser.add_argument('--start_date', type=tuple_int, default=(2001, 1, 1))
+    parser.add_argument('--start_date', type=tuple_int, default=(2017, 1, 1))
     parser.add_argument('--end_date', type=tuple_int, default=(2023, 1, 1))
     parser.add_argument('--months_trading', type=int, default=12)
     parser.add_argument('--months_forming', type=int, default=60)
     parser.add_argument('--pairs_alg', type=str, default='COINT')
-    parser.add_argument('--trading_alg', type=str, default='FA')
+    parser.add_argument('--trading_alg', type=str, default='TH')
     args = parser.parse_args()
 
     main(args.pairs_alg, args.trading_alg, args.index, args.sector,

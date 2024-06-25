@@ -30,8 +30,8 @@ class PairFormation:
         # end date of data (will be discarded for train end)
         self.__end = data.index[-1]
         self.__sector = sector if isinstance(sector, list) else [sector]
-        self.__membership_date = membership_date  # list of pairs
-        self.__membership_sector = membership_sector  # list of pairs
+        self.__membership_date = membership_date  # stocks in sector for each date
+        self.__membership_sector = membership_sector  # index sectors
 
     def set_date(self, train_start, train_end,test_start,test_end):
 
@@ -77,7 +77,7 @@ class PairFormation:
     def __cointegrated_pairs(self, pvalue_threshold=0.05, hurst_threshold=0.5 ,**kwargs):
 
         compute_pair=False
-        file='results/'+'engle_granger.pkl'
+        file='results/'+'engle_grangerb.pkl'
         id = self.__start+'_'+self.__end+'_'+str(pvalue_threshold)
         isExist = exists(file)
 

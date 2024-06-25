@@ -55,7 +55,7 @@ class Portfolio:
         total_pairs=0
         profit_trades=0
         loss_trades=0
-        cointegrated_pairs=0
+
         for simulation in self.portfolio_info:
 
             simulation_cash=np.array(simulation['portfolio_value'])
@@ -86,7 +86,6 @@ class Portfolio:
             total_pairs+=simulation['n_pairs']
             profit_trades+=simulation['profit_trades']
             loss_trades+=simulation['loss_trades']
-            cointegrated_pairs+=simulation['cointegrated_pairs']
 
 
         total_portfolio_value=np.array(total_portfolio_value)
@@ -104,7 +103,7 @@ class Portfolio:
         self.pairs_total=total_pairs
         self.total_trades=profit_trades+loss_trades
         self.profit_trades=profit_trades
-        self.coint_pairs=cointegrated_pairs
+
         self.total_portfolio_value=total_portfolio_value
         self.total_cash=total_cash
         self.daily_ret=daily_ret

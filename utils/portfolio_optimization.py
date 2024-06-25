@@ -118,7 +118,7 @@ class CInt(ElementwiseProblem):
 
 def ga_weights(returns,spreads,sector,window,pop=100,gen=2000,objectives=["SR"],**kwargs):
 
-    verbose=False
+    verbose=True
     plot=False
 
     args=load_args("GA")
@@ -131,7 +131,7 @@ def ga_weights(returns,spreads,sector,window,pop=100,gen=2000,objectives=["SR"],
 
     compute_w=False
 
-    file='results/'+'weightsfinal71finalissimo.pkl'
+    file='results/'+'weightsfinal71finalissimob.pkl'
 
     isExist = exists(file)
     obj = '_'.join(objectives)
