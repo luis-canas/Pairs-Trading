@@ -72,7 +72,7 @@ if __name__ == "__main__":
     parser.add_argument('--months_trading', type=int, default=12)
     parser.add_argument('--months_forming', type=int, default=60)
     parser.add_argument('--pairs_alg', type=str, default='COINT')
-    parser.add_argument('--trading_alg', type=str, default='FA')
+    parser.add_argument('--trading_alg', type=str, default='TH')
     args = parser.parse_args()
 
     main(args.pairs_alg, args.trading_alg, args.index, args.sector,
