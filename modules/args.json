@@ -29,10 +29,6 @@
     },
     "TRADING": {
         "transaction_cost": 0.05,
-        "weights": "ga",
-        "commission": 0.05,
-        "market_impact": 0,
-        "short_loan": 0,
-        "leverage": 2
+        "weights": "ga"
     }
 }

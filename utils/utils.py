@@ -345,6 +345,7 @@ def plot_positions(spread_test, spread_full, positions, window, profit_loss, por
     axs[1].set_aspect('auto')
     plt.tight_layout()
     plt.savefig(file_image+c1.name+"_positions"+".png")
+    plt.close()
 
 def plot_components(c1, c2):
     # Separate the names
@@ -395,7 +396,7 @@ def plot_components(c1, c2):
 
     # Show plot
     plt.savefig(file_image+c1.name+"_components"+".png")
-
+    plt.close()
 
 
 
@@ -445,7 +446,7 @@ def plot_forecasts(real, fc, horizon, model):
     plt.xlim(0, len(real.index) - 1-horizon)
     plt.tight_layout()
     plt.savefig(file_image+real.columns[0]+"_forecasts"+".png")
-
+    plt.close()
 
 
 def max_accumulate(arr):
@@ -704,10 +705,10 @@ def portfolio_plots(opt,port,returns,obj,pop,gen,sector,window,percentage,algori
     sns.set_theme()
     sns.set_style("white")
     sns.set_context("paper", font_scale=5)
-    plt.plot(n_evals, opt, linestyle='--',color='black')
+    plt.plot(np.arange(len(opt)), opt, linestyle='--',color='black')
 
     # Increase font size for the x-axis label
-    plt.xlabel('Evaluation', fontsize=fs)
+    plt.xlabel('Generation', fontsize=fs)
 
     # Increase font size for the y-axis label
     plt.ylabel('Fitness', fontsize=fs)
@@ -716,9 +717,8 @@ def portfolio_plots(opt,port,returns,obj,pop,gen,sector,window,percentage,algori
     plt.xticks(fontsize=fs)
     plt.yticks(fontsize=fs)
     plt.tight_layout()
-    plt.savefig(file_image+"convergence.png")
-
-
+    plt.savefig(file_image+"convergence"+returns.index[0]+'_'+returns.index[-1]+".png")
+    plt.close()
 
     rets = returns.pct_change()[window:].dropna()
     cov=np.cov(rets.T)
@@ -785,8 +785,8 @@ def portfolio_plots(opt,port,returns,obj,pop,gen,sector,window,percentage,algori
     plt.tight_layout()
     # plt.grid(True)
     # Show the plot
-    plt.savefig(file_image+"portfolio"+str(percentage*100)+".png")
-
+    plt.savefig(file_image+"portfolio"+str(percentage*100)+returns.index[0]+'_'+returns.index[-1]+".png")
+    plt.close()
 
 
     file2='results/'+'gaexpected.pkl'
@@ -892,8 +892,5 @@ def portfolio_plots(opt,port,returns,obj,pop,gen,sector,window,percentage,algori
         plt.legend()
         plt.xlim(0, len(rr[0]))
         plt.tight_layout()
-        plt.savefig(file_image + returns.index[0][:4] + filename)
-
-
-
-    pass
+        plt.savefig(file_image + returns.index[0]+'_'+returns.index[-1] + filename)
+        plt.close()

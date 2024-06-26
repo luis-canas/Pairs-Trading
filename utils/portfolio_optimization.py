@@ -1,25 +1,12 @@
 
 import numpy as np
-import statsmodels.api as sm
 
-from utils.utils import normal,portfolio_plots
+from utils.utils import normal,portfolio_plots,load_args
 from pymoo.core.problem import ElementwiseProblem
 
 import math
 
 from pymoo.termination.default import DefaultSingleObjectiveTermination
-
-
-from utils.utils import load_args
-
-
-
-import matplotlib.pyplot as plt
-
-import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.ticker import FuncFormatter
-
 
 from pymoo.algorithms.soo.nonconvex.ga import GA
 
@@ -29,8 +16,6 @@ from pymoo.operators.crossover.ux import UniformCrossover
 from pymoo.operators.mutation.pm import PolynomialMutation
 import pickle
 from os.path import exists
-
-from scipy.stats import norm
 
 # Constants
 NB_TRADING_DAYS = 252  # 1 year has 252 trading days
@@ -213,7 +198,7 @@ def ga_weights(returns,spreads,sector,window,pop=100,gen=1000,objectives=["SR"],
     return weights
 
 
-def clean_weights(weights,th=0.0001,uni=False):
+def clean_weights(weights,th=1e-4,uni=False):
     # Substitute all values in the array lower than the threshold for 0
 
     subs=1 if uni else weights

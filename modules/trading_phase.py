@@ -47,7 +47,7 @@ class TradingPhase:
         self.__tickers = data.keys()  # Data tickers
         self.__INIT_VALUE = PORTFOLIO_INIT
         self.__sector = sector
-        self.counter=np.zeros((2,))
+
         try:
             self.__data.index=self.__data.index.strftime('%Y-%m-%d')
         except:
