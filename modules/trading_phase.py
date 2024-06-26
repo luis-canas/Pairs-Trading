@@ -5,13 +5,13 @@ import pandas as pd
 
 
 
-from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions,features_ts,plot_components,plot_components2,plot_forecasts
+from utils.utils import date_string, price_of_entire_component, compute_zscore, dataframe_interval, coint_spread, load_args,plot_positions,features_ts,plot_components,plot_forecasts
 
 
 from utils.portfolio_optimization import ga_weights,uniform_portfolio,clean_weights
 
 
-from utils.forecasting import calculate_metrics,light3,arimabic
+from utils.forecasting import calculate_metrics,lightgbm,arima
 
 from statsmodels.tsa.stattools import coint,adfuller
 
@@ -47,7 +47,7 @@ class TradingPhase:
         self.__tickers = data.keys()  # Data tickers
         self.__INIT_VALUE = PORTFOLIO_INIT
         self.__sector = sector
-
+        self.counter=np.zeros((2,))
         try:
             self.__data.index=self.__data.index.strftime('%Y-%m-%d')
         except:
@@ -101,6 +101,7 @@ class TradingPhase:
 
 
         for id,(component1, component2) in enumerate(self.__pairs):  # get components for each pair
+
             # convert component1 and component2 to strings
             component1_str = '_'.join(component1)
             component2_str = '_'.join(component2)
@@ -196,43 +197,17 @@ class TradingPhase:
 
         return decision_array
     
-    def __break_pairs(self, decision_array,spread_test,spread_full):
 
-        # Set the cointegration threshold
-        coint_threshold = 0.1
-        i = spread_test.index[0]
-        offset = spread_full.index.get_loc(i)
-        p_value=adfuller(spread_full)[1]
-        if p_value < coint_threshold:
-            return decision_array
-        # Iterate through the trading decision array
-        for day, decision in enumerate(decision_array):
-            if day==0:
-                continue
-
-             # Check if the current position is open position
-            if decision_array[day] != CLOSE_POSITION :
-                # Perform the cointegration test
-                p_value=adfuller(spread_full[:offset+day+1])[1]
-                # Check if the p-value is larger than the threshold
-                if p_value > coint_threshold:
-                    # Don't open the position and set CLOSE POS until the end of the array
-                    decision_array[day:] = CLOSE_POSITION
-                    break
-
-        return decision_array
     
    
-    def __trade_spread(self, c1_test, c2_test, trade_array, FIXED_VALUE=1000, commission=0.08,  market_impact=0.2, short_loan=1,leverage=1,**kwargs):
+    def __trade_spread(self, c1_test, c2_test, trade_array, FIXED_VALUE=1000,transaction_cost=0.05,**kwargs):
         
         # Close all positions in the last day of the trading period whether they have converged or not
         trade_array.iloc[-1] = CLOSE_POSITION
 
         # define trading costs
-        fixed_costs_per_trade = (
-            commission + market_impact) / 100  # remove percentage
-        short_costs_per_day = FIXED_VALUE * \
-            (short_loan / NB_TRADING_DAYS) / 100  # remove percentage
+        fixed_costs_per_trade = (transaction_cost) / 100  # remove percentage
+
 
         # 2 positions, one for each component of the pair
         # The first position concerns the fist component, c1, and 2nd the c2
@@ -292,31 +267,30 @@ class TradingPhase:
 
                 if decision == SHORT_SPREAD:  # if the new decision is to SHORT the spread
                     # if the previous trades lost money I have less than FIXED VALUE to invest
-                    value_to_buy = min(FIXED_VALUE,cash_in_hand[day]) * leverage
+                    value_to_buy = min(FIXED_VALUE,cash_in_hand[day]) 
                     # long c2
-                    cash_in_hand[day] += -value_to_buy / 2 
-                    stocks_in_hand[1] = value_to_buy / 2 / c2_test[day] 
+                    cash_in_hand[day] += -value_to_buy 
+                    stocks_in_hand[1] = value_to_buy  / c2_test[day] 
                     # short c1
-                    cash_in_hand[day] += value_to_buy / 2
-                    stocks_in_hand[0] = -value_to_buy / 2 / c1_test[day]
+                    cash_in_hand[day] += value_to_buy
+                    stocks_in_hand[0] = -value_to_buy  / c1_test[day]
                     # apply transaction costs (with 2 operations made: short + long)
-                    cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade
+                    cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade*2
 
                 elif decision == LONG_SPREAD:  # if the new decision is to LONG the spread
-                    value_to_buy = min(FIXED_VALUE, cash_in_hand[day]) * leverage
+                    value_to_buy = min(FIXED_VALUE, cash_in_hand[day]) 
                     # long c1
-                    cash_in_hand[day] += -value_to_buy / 2
-                    stocks_in_hand[0] = value_to_buy / 2 / c1_test[day] 
+                    cash_in_hand[day] += -value_to_buy 
+                    stocks_in_hand[0] = value_to_buy  / c1_test[day] 
                     # short c2
-                    cash_in_hand[day] += value_to_buy / 2
-                    stocks_in_hand[1] = -value_to_buy / 2 / c2_test[day]  
+                    cash_in_hand[day] += value_to_buy 
+                    stocks_in_hand[1] = -value_to_buy / c2_test[day]  
                     # apply transaction costs (with 2 operations made: short + long)
-                    cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade
+                    cash_in_hand[day] -= value_to_buy*fixed_costs_per_trade*2
 
             # short rental costs are applied daily!
             # means there's an open position
             if stocks_in_hand[0] != 0 or stocks_in_hand[1] != 0:
-                cash_in_hand[day] -= short_costs_per_day
                 days_open[day] += 1
             # at the end of the day, the portfolio value takes in consideration the value of the stocks in hand
             portfolio_value[day] = cash_in_hand[day] + \
@@ -380,23 +354,18 @@ class TradingPhase:
     
 
     def __forecasting_algorithm(self, spread_train, spread_full, spread_test, verbose=True, plot=True,
-                                horizon=1, batch=10,batch_error=10,model=['arima'],window=21,**kwargs):
+                                horizon=1, batch=1,model=['arima'],window=21,**kwargs):
         verbose=False
         plot=False
 
         norm,_,_,_=compute_zscore(spread_full,spread_test,window)
         
-        
-        diff=False
-        X = features_ts(spread_full,diff=diff).dropna()
+        X = features_ts(spread_full).dropna()
         Y = pd.DataFrame([X['y'].shift(-i).values for i in range(1, horizon + 1)]).T
         offset = X.index.get_loc(spread_test.index[0])
         y_price=spread_test.values
         y_true= pd.DataFrame(Y[offset:].values,index=spread_test.index)
         y_true.columns = [spread_test.name]*(len(y_true.columns))
-
-        if diff:
-            y_true=y_true+y_price.reshape(-1,1)
 
         compute_fc=False
         file='results/'+'forecasts.pkl'
@@ -414,6 +383,7 @@ class TradingPhase:
         else:
             forecasts_algo={}
 
+
         for key in range(len(date)):
             if compute_fc or (date[key] not in forecasts_algo or forecasts_algo[date[key]] is None or forecasts_algo[date[key]].shape[1] < horizon):
 
@@ -421,29 +391,17 @@ class TradingPhase:
                 fcts = forecasts_algo[date[key]] if date[key] in forecasts_algo and not compute_fc else np.empty((len(spread_test), 0))
 
 
-                if model[key] == 'light3':
+                if model[key] == 'lightgbm':
                     # Compute only for the new columns
                     for h in range(fcts.shape[1], Y.shape[1]):
-                        new_fct = light3(X, Y.iloc[:, h], offset, h+1, batch, batch_error)
+                        new_fct = lightgbm(X, Y.iloc[:, h], offset, h+1, batch)
                         # Append the new forecast to fcts
                         fcts = np.hstack((fcts, new_fct.reshape(-1, 1)))
                         forecasts_algo.update({date[key]: fcts})
-                    array = spread_test.values
-                    # Append the new forecast to fcts
-                    fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-
-                if model[key] == 'arimabic':
-                    self.counter = self.counter+1
-                    # array = spread_test.values
-                    # # Append the new forecast to fcts
-                    # fcts = np.repeat(array.reshape(-1, 1), horizon, axis=1)
-
-                    new_fct = arimabic(X, Y, offset, horizon, batch, batch_error)
-                    # Append the new forecast to fcts
-                    fcts = new_fct
+            
+                if model[key] == 'arima':
+                    fcts = arima(X, Y, offset, horizon)
                     forecasts_algo.update({date[key]: fcts})
-
 
                 # Save the array to a pickle file
                 with open(file, 'wb') as f:
@@ -454,15 +412,12 @@ class TradingPhase:
             fc_list.append(fcts)
 
 
-
         # Stack arrays along a new axis (axis=0) to create a 3D array
         sliced_forecasts = np.array([forecast[:, :horizon] for forecast in fc_list])
 
         # Compute the mean along the first axis (axis=0)
         fc = np.mean(sliced_forecasts, axis=0)
 
-        if diff:
-            fc=fc+y_price.reshape(-1,1)
         y_true_trend = np.where(np.mean(y_true.values,axis=1)>y_price, 1, -1)
         y_fc_trend = np.where(np.mean(fc,axis=1)>y_price, 1, -1)
 
@@ -497,9 +452,6 @@ class TradingPhase:
         alpha_l=entry_l-percentage_s*entry_l
         alpha_s=entry_s-(percentage_l*(entry_s))
 
-        pct_u=0
-        pct_d=0
-
         for today in range(1,len(spread_test)-1):
         
             delta=(np.mean(fc[today])-y_price[today])/np.abs(y_price[today])
@@ -507,18 +459,18 @@ class TradingPhase:
             if (position == LONG_SPREAD and norm[today]>close_l)or (position == SHORT_SPREAD and norm[today]<close_s):
                 decision_array[today]=position=CLOSE_POSITION
             if norm[today]>alpha_s:
-                if delta<pct_d:
+                if delta<0:
                     decision_array[today]=position=SHORT_SPREAD
 
             elif norm[today]<alpha_l:
-                if delta>pct_u:
+                if delta>0:
                     decision_array[today]=position=LONG_SPREAD
 
 
         decision_array.iloc[-1] = decision_array.iloc[0] =CLOSE_POSITION
         decision_array=decision_array.fillna(method='ffill')
 
-        if plot and (spread_full.name=="LLY_PFE" or spread_full.name=="DE_UPS"):
+        if plot:
             plot_forecasts(y_true,sliced_forecasts,horizon,model)
 
 
@@ -527,7 +479,7 @@ class TradingPhase:
 
     def run_simulation(self, model):
 
-        verbose=True
+        verbose=False
         plot=False
 
         # Select function
@@ -546,7 +498,6 @@ class TradingPhase:
         if n_pairs==0:
             aux_pt_value=aux_cash=np.full(len(dataframe_interval(self.__test_start, self.__test_end, self.__data)),self.__INIT_VALUE)
 
-        cointegrated = 0
         n_non_convergent_pairs = 0
         profit = 0
         loss = 0
@@ -554,9 +505,6 @@ class TradingPhase:
         total_trades = 0
 
         weights=self.__portfolio_data()
-
-        # plot_portfolio(weights,self.__pairs)
-        cointegration_value=load_args("COINT")["pvalue_threshold"]
 
         window=self.__window
         is_train=False
@@ -602,10 +550,7 @@ class TradingPhase:
             # Force close non convergent positions
             # trade_array = self.__force_close(trade_array)
 
-            # Force close non convergent positions
-            # trade_array = self.__break_pairs(trade_array,spread_test,spread_full)
 
-            
             # # Apply trading rules to trade decision array
             n_trades, cash, portfolio_value, days_open, profitable_unprofitable, profit_loss = self.__trade_spread(trade_array=trade_array,**args)
 
@@ -615,24 +560,13 @@ class TradingPhase:
             pair_performance = portfolio_value[-1]/portfolio_value[0] * 100
 
             if verbose:
-                print(spread_train.name,' :   ',pair_performance)
+                print(spread_train.name,':',pair_performance)
 
-            if plot and (spread_train.name == 'CL_PEP' or spread_train.name == 'COP_VLO'):
+            if plot:
                 plot_positions(spread_test,spread_full,trade_array,window,profit_loss,portfolio_value,c1_test,c2_test)
                 plot_components(c1_train,c2_train)
-                # plot_components2(c1_test,c2_test)
-                # import matplotlib.pyplot as plt
-                # indices = np.arange(len(portfolio_value))
-                # plt.figure(figsize=(10, 6))
-                # plt.plot(indices, portfolio_value, color='blue', marker='o', linestyle='-')
-                # plt.title('Returns Data')
-                # plt.xlabel('Time')
-                # plt.ylabel('Returns')
-                # plt.grid(True)
-                # plt.show()
 
-            if coint(c1_full,c2_full)[1]<cointegration_value:
-                cointegrated+=1
+
 
             if pair_performance > 100:
                 profit += 1
@@ -672,7 +606,6 @@ class TradingPhase:
             "loss_pairs": loss,
             "profit_trades": int(profit_loss_trade[0]),
             "loss_trades": int(profit_loss_trade[1]),
-            "cointegrated_pairs": int(cointegrated),
             "non_convergent_pairs": n_non_convergent_pairs,
         }
 

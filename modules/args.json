@@ -11,8 +11,6 @@
         "pop": 100,
         "cv": 0.7,
         "mt": 0.1,
-        "callback": 100,
-        "seed": 8,
         "percentage": 0.1
     },
     "TH": {
@@ -24,17 +22,17 @@
     },
     "FA": {
         "batch": 1,
-        "batch_error": 25,
         "model": [
-            "light3"
+            "lightgbm"
         ],
-        "horizon": 1
+        "horizon": 5
     },
     "TRADING": {
+        "transaction_cost": 0.05,
+        "weights": "ga",
         "commission": 0.05,
         "market_impact": 0,
         "short_loan": 0,
-        "leverage": 2,
-        "weights": "ga"
+        "leverage": 2
     }
 }

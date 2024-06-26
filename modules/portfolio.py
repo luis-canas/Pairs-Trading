@@ -43,6 +43,7 @@ class Portfolio:
         
     def evaluate(self):
 
+        #init variables
         total_portfolio_value=[]
         total_cash=[]
         daily_ret=[]
@@ -55,7 +56,8 @@ class Portfolio:
         total_pairs=0
         profit_trades=0
         loss_trades=0
-        cointegrated_pairs=0
+
+        #for each year add to dict performance metrics
         for simulation in self.portfolio_info:
 
             simulation_cash=np.array(simulation['portfolio_value'])
@@ -86,29 +88,24 @@ class Portfolio:
             total_pairs+=simulation['n_pairs']
             profit_trades+=simulation['profit_trades']
             loss_trades+=simulation['loss_trades']
-            cointegrated_pairs+=simulation['cointegrated_pairs']
 
-
+        # compute total simulation performance
         total_portfolio_value=np.array(total_portfolio_value)
         total_cash=np.array(total_cash)
         daily_ret=np.array(daily_ret)
-
         kur,skew,median,mean,max,min=return_stats(daily_ret)
-
         roi=(total_portfolio_value[-1]/(total_portfolio_value[0])-1) * 100
-
         roi_avg/=len(self.portfolio_info)
         sr_avg/=len(self.portfolio_info)
         vol_avg/=len(self.portfolio_info)
-
         self.pairs_total=total_pairs
         self.total_trades=profit_trades+loss_trades
         self.profit_trades=profit_trades
-        self.coint_pairs=cointegrated_pairs
         self.total_portfolio_value=total_portfolio_value
         self.total_cash=total_cash
         self.daily_ret=daily_ret
 
+        #add to dict total performance
         self.evaluation["total_roi"]=roi
         self.evaluation["roi_avg"]=roi_avg
         self.evaluation["sr_avg"]=sr_avg
@@ -180,8 +177,9 @@ class Portfolio:
                     pass
                 if sector==1: 
                     continue
-
+                #number of pairs per sector
                 self.sector_representation[sector]+=1
+                #sum of weights per sector
                 self.sector_investment[sector]+=tp_simul['weights'][id]
          
 
